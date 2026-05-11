@@ -1,49 +1,71 @@
 import { AgentBase } from '../base.agent.js';
 import type { AgentContext, AgentResult } from '../types.js';
+import { ROUTINES_FR_BRAND, GAMMES_ROUTINES_FR, ECARTS_CULTURELS } from '../data/routines-fr.data.js';
 
-const BRAND_IDENTITY = {
-  nom: 'routines.fr',
-  maison: 'MBF Cosmétique',
-  tagline: 'Ta routine. Tes racines.',
-  promesse: 'Des routines simples, efficaces, ancrées dans le meilleur du soin marocain',
-  valeurs: ['Efficacité prouvée', 'Héritage marocain modernisé', 'Formules clean & halal', 'Accessibilité premium'],
-  personnalite: 'Chaleureuse, experte, moderne, fière de ses origines',
-  archetype: 'Le Sage bienveillant + Le Créateur', // brand archetypes
+const IDENTITE_MAROC = {
+  tagline_fr: 'Ta routine. Tes racines.',
+  tagline_ar: 'روتينك. جذورك.',
+  tagline_darija: 'Routine dyalek. Chedda dyalek.',
+  positionnement: 'La marque française clean beauty, formulée pour la femme marocaine moderne',
+  territoire: 'Efficacité prouvée × Identité culturelle × Transparence des formules',
+  archetype: 'Expert bienveillant + Allié culturel',
+  palette_maroc: {
+    primaire: '#C8963E',   // Or satiné (argan, luxe naturel)
+    secondaire: '#F5F0E8', // Blanc ivoire crème
+    accent: '#2C5F3E',     // Vert olive (naturel, terre)
+    texte: '#1A1A1A',      // Quasi-noir (lisibilité)
+  },
+  motifs_visuels: ['Géométrie zellige (emballage)', 'Arabesque dorée (newsletter)', 'Goutte argan stylisée (logo secondaire)'],
+  ton_communication: {
+    maroc: 'Chaleureux, expert, fier de la culture marocaine, pédagogique. Darija pour l\'intimité, français pour le prestige.',
+    france_diaspora: 'Moderne, identitaire, qualité française × fierté marocaine.',
+  },
 };
 
-const GAMMES_HERO = [
+const ADAPTATION_GAMMES_MAROC = [
   {
-    nom: 'Routine Argan Éclat',
-    description: 'Système complet en 3 étapes à l\'argan bio du Sous',
-    skus: ['Huile argan sérum', 'Crème jour SPF30', 'Nettoyant doux'],
-    prix_cible_mad: [290, 320, 180],
-    prix_cible_eur: [28, 31, 17],
+    gamme_originale: 'Routine Matin',
+    nom_maroc: 'Routine Matin Éclat',
+    adaptation: 'Reformuler crème SPF30 → SPF50. Ajouter niacinamide anti-taches dans le sérum.',
+    hero_produit: 'Sérum Vitamine C + Niacinamide (double action éclat + anti-taches)',
+    argument_vente: 'Protège et éclaire matin après matin',
+    prix_bundle_mad: 680,
   },
   {
-    nom: 'Routine Rhassoul Purifiant',
-    description: 'Détox hebdomadaire inspiré du rituel hammam',
-    skus: ['Masque rhassoul argileux', 'Eau florale rose', 'Beurre post-masque'],
-    prix_cible_mad: [250, 160, 230],
-    prix_cible_eur: [24, 15, 22],
+    gamme_originale: 'Routine Soir',
+    nom_maroc: 'Routine Soir Réparatrice',
+    adaptation: 'Remplacer huile démaquillante par "Baume démaquillant au beurre de karité local". Intégrer story hammam.',
+    hero_produit: 'Baume démaquillant au karité du Maroc (remplacement huile démaquillante)',
+    argument_vente: 'Le rituel du soir inspiré du hammam, en 3 gestes',
+    prix_bundle_mad: 750,
   },
   {
-    nom: 'Routine Essence Légère (Travel)',
-    description: 'Kit découverte formats 30ml — idéal acquisition',
-    skus: ['Mini kit 3 produits'],
-    prix_cible_mad: [199],
-    prix_cible_eur: [19],
+    gamme_originale: 'Boosts & Soins Ciblés',
+    nom_maroc: 'Cures Ciblées',
+    adaptation: 'Renommer "Sérum anti-taches" → produit n°1 au Maroc. Remplacer masque argile générique par masque rhassoul marocain.',
+    hero_produit: 'Sérum anti-taches intensif (azelaic + kojic acid) — HÉROS MAROC',
+    argument_vente: '8 semaines pour une peau sans taches visible',
+    prix_bundle_mad: 450,
+  },
+  {
+    gamme_originale: 'Kit Découverte',
+    nom_maroc: 'Kit Découverte Maroc Edition',
+    adaptation: 'Ajouter une eau florale rose du Maroc en bonus. Packaging édition limitée "Zellige".',
+    hero_produit: 'Kit 3 essentiels + eau florale rose (bonus local)',
+    argument_vente: 'Découvre ta routine en 7 jours',
+    prix_bundle_mad: 249,
   },
 ];
 
 export class BrandAgent extends AgentBase {
   readonly role = 'brand' as const;
-  readonly domaine = 'Stratégie de Marque & Identité';
+  readonly domaine = 'Stratégie de Marque & Adaptation Culturelle';
   readonly expertise = [
-    'Architecture de marque DTC',
-    'Positionnement premium accessible',
-    'Storytelling culturel MENA',
-    'Naming & identité visuelle',
-    'Portfolio produits et gammes',
+    'Adaptation marque France → Maroc sans dilution ADN',
+    'Positionnement premium accessible MENA',
+    'Storytelling biculturel (FR × MA)',
+    'Portfolio produits et localisation gammes',
+    'Identité visuelle adaptée au marché marocain',
   ];
 
   constructor(contexte: AgentContext) {
@@ -51,89 +73,121 @@ export class BrandAgent extends AgentBase {
   }
 
   analyser(): AgentResult {
+    const ecartsPkg = ECARTS_CULTURELS.find(e => e.dimension === 'Packaging & Esthétique');
+    const ecartsLang = ECARTS_CULTURELS.find(e => e.dimension === 'Langue & Communication');
+
     const analyse = `
-## Stratégie de Marque — routines.fr by MBF Cosmétique
+## Stratégie de Marque — Adaptation routines.fr au Marché Marocain
 
-### Positionnement
-> **"La marque de référence des routines beauté modernes, portée par le savoir-faire marocain authentique"**
+### Défi Central : "Glocalization"
+routines.fr possède une forte identité française (minimalisme, clean, science).
+Au Maroc, cette crédibilité est un actif — à condition de **l'ancrer localement**.
+L'erreur à éviter : diluer l'ADN français (perte de prestige) OU ignorer les codes marocains (rejet culturel).
 
-- **Territoire** : Rituel × Science × Identité
-- **Vs Typology** : Typology vend des actifs, routines.fr vend un **système de soin ancré dans une culture**
-- **Vs marques locales** : Plus moderne, digital-first, formules clean certifiées
-- **Vs L'Oréal** : Proximité culturelle, éthique, storytelling authentique
+**Solution** : Édition "Maroc" de routines.fr — même marque, même qualité, storytelling biculturel.
+
+### Positionnement Maroc
+> **"La rigueur scientifique française + l'efficacité des soins marocains"**
+
+${IDENTITE_MAROC.positionnement}
+
+**Territoire** : ${IDENTITE_MAROC.territoire}
+**Archétype** : ${IDENTITE_MAROC.archetype}
+
+### Taglines par Marché
+| Marché | Tagline |
+|--------|---------|
+| France | "${ROUTINES_FR_BRAND.promesse_fr}" |
+| Maroc (FR) | "${IDENTITE_MAROC.tagline_fr}" |
+| Maroc (AR) | "${IDENTITE_MAROC.tagline_ar}" |
+| Maroc (Darija) | "${IDENTITE_MAROC.tagline_darija}" |
+
+### Identité Visuelle — Adaptation Maroc
+**Palette chromique** :
+- Or satiné ${IDENTITE_MAROC.palette_maroc.primaire} — évoque l'argan, luxe naturel
+- Blanc ivoire ${IDENTITE_MAROC.palette_maroc.secondaire} — pureté, clean beauty
+- Vert olive ${IDENTITE_MAROC.palette_maroc.accent} — naturel, confiance
+- Motifs : ${IDENTITE_MAROC.motifs_visuels.join(' | ')}
+
+**Conservation de l'emballage existant** : Ajouter un sleeve ou étiquette bilingue AR/FR + motif zellige discret.
+Budget adaptation packaging : ~15 000 MAD (sleeve uniquement, sans refonte complète).
+
+### Adaptation Gammes pour le Marché Marocain
+${ADAPTATION_GAMMES_MAROC.map(g =>
+  `**${g.nom_maroc}** (basé sur ${g.gamme_originale})
+  - Héros produit : ${g.hero_produit}
+  - Adaptation : ${g.adaptation}
+  - Argument de vente : *"${g.argument_vente}"*
+  - Prix bundle Maroc : ${g.prix_bundle_mad} MAD`
+).join('\n\n')}
+
+### Ton de Communication
+**Maroc** : ${IDENTITE_MAROC.ton_communication.maroc}
+**Diaspora France** : ${IDENTITE_MAROC.ton_communication.france_diaspora}
+
+**Règle d'or** : Les posts Instagram = français élégant. Les Reels TikTok = darija naturelle.
+Les deux publics sont ciblés avec leurs codes respectifs.
 
 ### Architecture de Marque
 \`\`\`
-MBF Cosmétique (maison)
-  └── routines.fr (marque 1 — soin visage/corps)
-       ├── Gamme Argan Éclat (héroïne)
-       ├── Gamme Rhassoul Purifiant (rituel hebdo)
-       └── Gamme Essence Légère (kit acquisition)
+MBF Cosmétique (maison — Maroc)
+  └── routines.fr
+        ├── Edition France (formules originales)
+        └── Edition Maroc (formules adaptées + packaging bilingue)
+              ├── Routine Matin Éclat (SPF50 + anti-taches)
+              ├── Routine Soir Réparatrice (baume karité local)
+              ├── Cures Ciblées (sérum anti-taches = héros)
+              └── Kit Découverte Maroc Edition (+eau florale rose)
 \`\`\`
-
-### Identité Visuelle (directives)
-- **Palette** : Terre ocre + Blanc ivoire + Or mat + Vert sauge
-- **Typographie** : Serif élégant (FR) + Arabic calligraphique (MA)
-- **Packagaing** : Verre givré recyclable + étiquettes papier Kraft certifié
-- **Logo** : Symbole zellige géométrique + police minuscule douce
-
-### Gammes Hero au Lancement
-${GAMMES_HERO.map(g => `**${g.nom}** — ${g.description}
-  - SKUs : ${g.skus.join(' | ')}
-  - Prix Maroc : ${g.prix_cible_mad.join(' / ')} MAD
-  - Prix France : ${g.prix_cible_eur.join(' / ')} EUR`).join('\n\n')}
-
-### Stratégie de Lancement
-- Lancer 1 gamme hero + kit discovery en J1 → éviter la dilution
-- Raconter l'histoire des ingrédients via Instagram Reels & TikTok
-- Collaborations avec 5-8 micro-influenceurs (15K–80K) avant le lancement officiel
     `.trim();
 
     const recommandations = [
       this.creerRecommandation(
-        'Lancer avec 1 gamme hero uniquement (Argan Éclat)',
-        'Concentrer toute la communication sur la gamme Argan Éclat les 90 premiers jours. Une marque se construit sur un produit emblématique, pas sur un catalogue.',
-        'fort', 'critique', 'J1 – M3'
+        'NE PAS renommer la marque — exploiter "routines.fr" comme label d\'origine',
+        'Le ".fr" dans le nom est un signal de qualité massive au Maroc. "Marque française" = +30% d\'intention d\'achat selon études MENA. Garder le nom exact, ajouter "by MBF Cosmétique" en sous-titre discret.',
+        'fort', 'critique', 'Décision stratégique J1'
       ),
       this.creerRecommandation(
-        'Créer le "Passeport Origine" pour chaque ingrédient',
-        'QR code sur le packaging menant à une vidéo courte montrant la coopérative/producteur marocain. Différenciateur fort + traçabilité = confiance.',
-        'fort', 'haute', 'M2'
+        'Créer une histoire biculturelle authentique',
+        'La fondatrice/directrice MBF doit apparaître en vidéo racontant : "J\'ai découvert routines.fr à Paris et j\'ai voulu l\'adapter pour nous, pour nos peaux, notre soleil, notre culture." Ce storytelling vaut plus que n\'importe quelle pub.',
+        'fort', 'critique', 'M1 (contenu fondateur)'
       ),
       this.creerRecommandation(
-        'Produire 20 contenus fondateurs avant le lancement',
-        'Vidéos "La routine en 3 étapes", "L\'argan de notre coopérative", "Pourquoi halal = plus sûr". Ces contenus seront boosted ads + SEO permanent.',
-        'fort', 'critique', 'M1 (pré-lancement)'
+        'Adapter les emballages avec sleeve bilingue zellige — budget minimal',
+        `${ecartsPkg?.action ?? 'Adapter le packaging'}. Un sleeve cartonné autour du flacon existant = coût ~3 MAD/unité, impression Casablanca. Légal + esthétique + local. Pas de refonte complète.`,
+        'fort', 'haute', 'M2 (avant production)'
       ),
       this.creerRecommandation(
-        'Déposer la marque routines.fr en France + Maroc',
-        'OMPIC (Maroc) + EUIPO (classe 3 cosmétiques). Budget estimé : 800 EUR + 3 000 MAD. Non négociable avant tout investissement marketing.',
-        'fort', 'critique', 'Semaine 1'
+        'Positionner le sérum anti-taches comme n°1 au Maroc (pas en France)',
+        'En France, ce produit est "boost ciblé". Au Maroc, il doit être le produit héros en vitrine, en tête de gondole, premier cité dans les pubs. Adapter TOUTE la communication locale sur ce produit.',
+        'fort', 'critique', 'Brief marketing M1'
       ),
       this.creerRecommandation(
-        'Kit presse pour 30 journalistes & influenceurs',
-        'Boîte premium avec lettre personnalisée, 3 produits, carte "Origine de chaque ingrédient". Envoi J-30 avant lancement officiel.',
-        'fort', 'haute', 'M2 (J-30)'
+        'Créer une édition limitée "Ramadan" chaque année',
+        'Coffret cadeau routines.fr "Collection Nuit du Ramadan" : 3 soins dans une boîte dorée avec verset calligraphié. Prix : 399–499 MAD. Vendre exclusivement J-14 avant Ramadan. Tout part en 72h.',
+        'fort', 'haute', 'Premier Ramadan après lancement'
       ),
     ];
 
     const kpis = [
-      this.creerKPI('Notoriété spontanée (Casablanca, Rabat)', 5, '%', 'M6'),
-      this.creerKPI('Taux d\'engagement Instagram', 4.5, '%', 'M3'),
-      this.creerKPI('UGC (contenus générés utilisateurs)', 200, 'posts/mois', 'M6'),
-      this.creerKPI('Taux rétention marque (repeat purchase)', 35, '%', 'M6'),
+      this.creerKPI('Reconnaissance marque "routines.fr" (sondage Casablanca)', 15, '%', 'M6'),
+      this.creerKPI('Association "qualité française + soin marocain"', 60, '% sondage', 'M9'),
+      this.creerKPI('Taux engagement Instagram Maroc', 5.5, '%', 'M3'),
+      this.creerKPI('UGC organiques #routinesfr Maroc', 300, 'posts', 'M6'),
+      this.creerKPI('Part du sérum anti-taches dans les ventes', 35, '%', 'M3'),
     ];
 
-    this.envoyerMessage('marketing', 'Brief créatif validé',
-      'Identité visuelle : palette ocre/ivoire/or, storytelling ingrédient, lancement mono-gamme Argan Éclat. Besoin : 20 contenus fondateurs M1.',
-      { gamme_hero: GAMMES_HERO[0] });
-    this.envoyerMessage('produit', 'SKUs prioritaires',
-      'Lancer en premier : huile argan sérum + crème jour SPF30 + nettoyant doux (gamme Argan Éclat) + Kit discovery.',
-      { skus: GAMMES_HERO.map(g => g.skus).flat() });
+    this.envoyerMessage('marketing', 'Brief créatif Maroc',
+      'Ton darija pour TikTok, français pour Instagram. Héros = sérum anti-taches. Storytelling fondatrice = pièce maîtresse. Kit Découverte = produit d\'entrée premier achat.',
+      { adaptation_gammes: ADAPTATION_GAMMES_MAROC.map(g => g.nom_maroc) });
+    this.envoyerMessage('produit', 'Adaptation packaging',
+      `Sleeve bilingue AR/FR à créer. Motif zellige doré. ${ecartsLang?.action ?? ''}. Budget : 15 000 MAD.`,
+      {});
 
     return this.creerResultat(analyse, recommandations, kpis, [
-      'Éviter la dispersion : ne pas lancer plus de 6 SKUs en Y1.',
-      'Nom routines.fr : vérifier disponibilité domaine + trademark FR/MA avant communications publiques.',
+      'Ne jamais traduire le nom "routines.fr" en arabe — le nom français est l\'actif principal.',
+      'Éviter les clichés orientalistes (trop de motifs, rose partout) : rester minimaliste avec touche locale subtile.',
+      'Tester les taglines darija sur 20 femmes cibles avant diffusion — certaines formulations peuvent sonner faux.',
     ]);
   }
 }

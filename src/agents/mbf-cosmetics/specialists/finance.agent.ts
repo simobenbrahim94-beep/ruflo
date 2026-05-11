@@ -1,55 +1,84 @@
 import { AgentBase } from '../base.agent.js';
 import type { AgentContext, AgentResult } from '../types.js';
+import { ROUTINES_FR_BRAND, GAMMES_ROUTINES_FR, GRILLE_PRIX_ADAPTATION } from '../data/routines-fr.data.js';
+
+const STRUCTURE_COUTS = {
+  // Achat des produits routines.fr France (import) + adaptation
+  import_franco_bord: {
+    note: 'Achat des produits finis en France + frais logistique vers Maroc',
+    cout_par_unite_eur: 22, // ex-works estimé (40% du prix de vente FR)
+    cout_par_unite_mad: 238, // 22 EUR × 10.8
+    droits_douane: 0, // ALE Maroc-UE, taux 0% avec EUR.1
+    tva_import: 20, // 20% TVA import (récupérable si immatriculé TVA)
+  },
+  adaptation_locale: {
+    sleeve_bilingue: 3, // MAD/unité (packaging adaptation)
+    reformulation_amortie: 8, // MAD/unité (amortissement reformulations sur 3000 unités)
+    test_panel_maroc: 5, // MAD/unité (amortissement tests cliniques)
+  },
+  logistique_maroc: {
+    livraison_client: 38, // MAD/commande Amana COD
+    emballage_expedition: 12, // MAD/commande
+    retours_provision: 15, // MAD/commande (provision 5% refus COD)
+  },
+  frais_vente: {
+    paiement_cmi: 2.5, // % du prix de vente
+    plateforme_shopify: 3, // MAD/commande (amorti)
+  },
+};
+
+const SCENARIOS_PROJECTION = {
+  conservateur: {
+    label: 'Conservateur (marque inconnue, lancement difficile)',
+    m3_unites: 200, m6_unites: 600, m12_unites: 1800,
+    panier_moyen_mad: 450,
+  },
+  realiste: {
+    label: 'Réaliste (bon marketing, label France bien reçu)',
+    m3_unites: 400, m6_unites: 1200, m12_unites: 4000,
+    panier_moyen_mad: 480,
+  },
+  optimiste: {
+    label: 'Optimiste (viral TikTok + influenceurs + Ramadan)',
+    m3_unites: 700, m6_unites: 2500, m12_unites: 8000,
+    panier_moyen_mad: 520,
+  },
+};
 
 const INVESTISSEMENT_INITIAL = {
-  formulation_cmo: 80000, // MAD
-  packaging_design: 25000,
-  stock_initial: 120000, // 300 unités x 6 SKUs x ~67 MAD COGS moyen
-  legal_certif: 70000,
-  site_ecommerce: 15000,
-  marketing_lancement: 45000,
-  fonds_roulement: 50000,
-  get total() { return Object.values(this).filter(v => typeof v === 'number').reduce((a, b) => a + b, 0); },
+  accord_distribution_routines_fr: 0, // Negociation — peut être sous forme de licence
+  stock_initial_import: 180000, // 750 unités × 240 MAD COGS moyen import
+  adaptation_reformulation: 90000, // reformulations SPF50 + anti-taches
+  certifications_legal: 80000, // DMP + Halal + OMPIC + avocats
+  packaging_adaptation: 25000, // sleeves bilingues + motif zellige
+  site_shopify_maroc: 18000,
+  marketing_lancement: 55000,
+  tests_cliniques_maroc: 20000,
+  fonds_roulement: 60000,
+  get total() {
+    return this.stock_initial_import + this.adaptation_reformulation
+      + this.certifications_legal + this.packaging_adaptation
+      + this.site_shopify_maroc + this.marketing_lancement
+      + this.tests_cliniques_maroc + this.fonds_roulement;
+  },
 };
 
-const PROJECTION_CA = {
-  m1: { unites: 150, panier_moyen: 280, ca: 42000 },
-  m2: { unites: 300, panier_moyen: 290, ca: 87000 },
-  m3: { unites: 500, panier_moyen: 295, ca: 147500 },
-  m6: { unites: 1200, panier_moyen: 310, ca: 372000 },
-  m12: { unites: 3000, panier_moyen: 320, ca: 960000 },
-  y2: { unites: 8000, panier_moyen: 340, ca: 2720000 },
-  y3: { unites: 18000, panier_moyen: 350, ca: 6300000 },
-};
-
-const STRUCTURE_MARGE = {
-  prix_vente_moyen_mad: 290,
-  cogs: 87, // 30% du PV
-  marge_brute_pct: 70,
-  frais_logistique_pct: 8,
-  frais_paiement_pct: 2.5,
-  marge_contribution_pct: 59.5,
-  marketing_pct: 18, // CAC / CA
-  marge_operationnelle_pct: 41.5, // hors salaires phase 1
-};
-
-const FINANCEMENTS_DISPONIBLES = [
-  { source: 'Fonds propres / FFF', montant: '50K–200K MAD', conditions: 'Immédiat, dilution ou prêt familial' },
-  { source: 'CCG Damane Express (TPE)', montant: 'Jusqu\'à 100K MAD', conditions: 'Garantie 50%, taux 5.5%, délai 15j' },
-  { source: 'CIH Bank Startup Maroc', montant: 'Jusqu\'à 300K MAD', conditions: 'Bilan N-1 ou business plan solide' },
-  { source: 'Innov Invest (CGEM/BMCE)', montant: '500K–2M MAD', conditions: 'Traction prouvée (6 mois data)' },
-  { source: 'Bpifrance (France)', montant: '25K–50K EUR', conditions: 'Entité française, Prêt d\'honneur, 0% intérêt' },
+const FINANCEMENTS = [
+  { source: 'Fonds propres', montant_mad: 200000, note: 'Apport fondateur MBF' },
+  { source: 'Avance routines.fr (stock consignation)', montant_mad: 80000, note: 'Négocier paiement à 60j' },
+  { source: 'CCG Damane Express', montant_mad: 100000, note: 'Garantie 50%, taux 5.5%, délai 15j' },
+  { source: 'Bpifrance (via SAS France)', montant_mad: 54000, note: '~5 000 EUR Prêt d\'honneur 0%' },
 ];
 
 export class FinanceAgent extends AgentBase {
   readonly role = 'finance' as const;
-  readonly domaine = 'Finance, Pricing & Revenue';
+  readonly domaine = 'Finance, Pricing & Unit Economics';
   readonly expertise = [
-    'Modélisation financière DTC',
-    'Pricing cosmétique (Maroc/France)',
-    'Unit economics (CAC, LTV, COGS)',
-    'Financements startup Maroc',
-    'Plan de trésorerie',
+    'Modélisation import-distribution cosmétique',
+    'Pricing premium adapté au marché marocain',
+    'Unit economics DTC Maroc (COGS import, marge, CAC)',
+    'Financement startup distribution (CCG, Bpifrance)',
+    'Gestion trésorerie import (délais paiement FR→MA)',
   ];
 
   constructor(contexte: AgentContext) {
@@ -57,102 +86,120 @@ export class FinanceAgent extends AgentBase {
   }
 
   analyser(): AgentResult {
-    const investissement_total = INVESTISSEMENT_INITIAL.formulation_cmo
-      + INVESTISSEMENT_INITIAL.packaging_design
-      + INVESTISSEMENT_INITIAL.stock_initial
-      + INVESTISSEMENT_INITIAL.legal_certif
-      + INVESTISSEMENT_INITIAL.site_ecommerce
-      + INVESTISSEMENT_INITIAL.marketing_lancement
-      + INVESTISSEMENT_INITIAL.fonds_roulement;
-
-    const breakeven_mois = Math.ceil(investissement_total / (PROJECTION_CA.m3.ca * (STRUCTURE_MARGE.marge_contribution_pct / 100)));
+    const investissement_total = INVESTISSEMENT_INITIAL.total;
+    const cogs_moyen = STRUCTURE_COUTS.import_franco_bord.cout_par_unite_mad
+      + STRUCTURE_COUTS.adaptation_locale.sleeve_bilingue
+      + STRUCTURE_COUTS.adaptation_locale.reformulation_amortie
+      + STRUCTURE_COUTS.adaptation_locale.test_panel_maroc;
+    const prix_vente_moyen = 450; // MAD (scénario réaliste)
+    const marge_brute_pct = ((prix_vente_moyen - cogs_moyen) / prix_vente_moyen * 100).toFixed(1);
+    const contribution = prix_vente_moyen - cogs_moyen
+      - STRUCTURE_COUTS.logistique_maroc.livraison_client
+      - STRUCTURE_COUTS.logistique_maroc.emballage_expedition
+      - STRUCTURE_COUTS.logistique_maroc.retours_provision;
+    const marge_contribution_pct = (contribution / prix_vente_moyen * 100).toFixed(1);
+    const ca_m12_realiste = SCENARIOS_PROJECTION.realiste.m12_unites * SCENARIOS_PROJECTION.realiste.panier_moyen_mad;
 
     const analyse = `
-## Plan Financier — MBF Cosmétique / routines.fr
+## Plan Financier — Import et Distribution routines.fr au Maroc
 
-### Investissement Initial Requis
-| Poste | MAD |
-|-------|-----|
-| Formulation + CMO | ${INVESTISSEMENT_INITIAL.formulation_cmo.toLocaleString()} |
-| Design + packaging | ${INVESTISSEMENT_INITIAL.packaging_design.toLocaleString()} |
-| Stock initial (300u×6 SKUs) | ${INVESTISSEMENT_INITIAL.stock_initial.toLocaleString()} |
-| Légal + certifications | ${INVESTISSEMENT_INITIAL.legal_certif.toLocaleString()} |
-| Site e-commerce | ${INVESTISSEMENT_INITIAL.site_ecommerce.toLocaleString()} |
-| Marketing lancement | ${INVESTISSEMENT_INITIAL.marketing_lancement.toLocaleString()} |
-| Fonds de roulement | ${INVESTISSEMENT_INITIAL.fonds_roulement.toLocaleString()} |
-| **TOTAL** | **${investissement_total.toLocaleString()} MAD** |
+### Modèle Économique : Import + Adaptation + Distribution DTC
+**NB : Différence fondamentale vs marque propre**
+routines.fr est une marque EXISTANTE. MBF Cosmétique est distributeur/importateur + adaptateur local.
+Le modèle est donc : acheter en France + adapter + revendre au Maroc, pas fabriquer.
 
-→ Équivalent : ~**${(investissement_total / 10.8).toFixed(0)} EUR** (taux 1 EUR = 10.8 MAD)
+### Structure des Coûts par Unité (MAD)
+| Poste | MAD/unité | % PV |
+|-------|----------|------|
+| Achat produit France (ex-works) | ${STRUCTURE_COUTS.import_franco_bord.cout_par_unite_mad} | ${(STRUCTURE_COUTS.import_franco_bord.cout_par_unite_mad/prix_vente_moyen*100).toFixed(0)}% |
+| Sleeve bilingue + adaptation | ${STRUCTURE_COUTS.adaptation_locale.sleeve_bilingue + STRUCTURE_COUTS.adaptation_locale.reformulation_amortie + STRUCTURE_COUTS.adaptation_locale.test_panel_maroc} | ${((STRUCTURE_COUTS.adaptation_locale.sleeve_bilingue + 8 + 5)/prix_vente_moyen*100).toFixed(0)}% |
+| **COGS Total** | **${cogs_moyen}** | **${(cogs_moyen/prix_vente_moyen*100).toFixed(0)}%** |
+| Livraison + emballage | ${STRUCTURE_COUTS.logistique_maroc.livraison_client + STRUCTURE_COUTS.logistique_maroc.emballage_expedition} | ${((STRUCTURE_COUTS.logistique_maroc.livraison_client + STRUCTURE_COUTS.logistique_maroc.emballage_expedition)/prix_vente_moyen*100).toFixed(0)}% |
+| Provision retours COD | ${STRUCTURE_COUTS.logistique_maroc.retours_provision} | ${(STRUCTURE_COUTS.logistique_maroc.retours_provision/prix_vente_moyen*100).toFixed(0)}% |
+| **Marge brute** | **${prix_vente_moyen - cogs_moyen} MAD** | **${marge_brute_pct}%** |
+| **Marge contribution** | **${contribution.toFixed(0)} MAD** | **${marge_contribution_pct}%** |
 
-### Projections CA (scénario réaliste)
-| Période | Unités | Panier MAD | CA MAD |
-|---------|--------|------------|--------|
-${Object.entries(PROJECTION_CA).map(([p, d]) =>
-  `| ${p.toUpperCase()} | ${d.unites.toLocaleString()} | ${d.panier_moyen} | **${d.ca.toLocaleString()}** |`
+### Grille Tarifaire Maroc (adaptée du FR)
+| Produit | Prix FR (EUR) | Prix MAD brut | Prix MAD psycho | Marge brute |
+|---------|-------------|--------------|----------------|------------|
+${GRILLE_PRIX_ADAPTATION.exemples.map(e =>
+  `| Produit ~${e.prix_eur}€ | ${e.prix_eur} EUR | ${e.prix_mad_brut} MAD | **${e.prix_mad_psycho} MAD** | ~${(((e.prix_mad_psycho - cogs_moyen) / e.prix_mad_psycho) * 100).toFixed(0)}% |`
+).join('\n')}
+**Kit Starter Maroc** : **249 MAD** (porte d\'entrée, format réduit)
+
+### Projections CA (3 scénarios)
+| Scénario | M3 | M6 | M12 |
+|---------|----|----|-----|
+${Object.entries(SCENARIOS_PROJECTION).map(([, s]) =>
+  `| ${s.label.split(' (')[0]} | ${(s.m3_unites * s.panier_moyen_mad / 1000).toFixed(0)}K MAD | ${(s.m6_unites * s.panier_moyen_mad / 1000).toFixed(0)}K MAD | **${(s.m12_unites * s.panier_moyen_mad / 1000).toFixed(0)}K MAD** |`
 ).join('\n')}
 
-### Structure de Marge
-- Prix vente moyen : ${STRUCTURE_MARGE.prix_vente_moyen_mad} MAD
-- COGS : ${STRUCTURE_MARGE.cogs} MAD (${STRUCTURE_MARGE.cogs/STRUCTURE_MARGE.prix_vente_moyen_mad*100}%)
-- **Marge brute** : **${STRUCTURE_MARGE.marge_brute_pct}%**
-- Logistique + paiement : ${STRUCTURE_MARGE.frais_logistique_pct + STRUCTURE_MARGE.frais_paiement_pct}%
-- **Marge contribution** : **${STRUCTURE_MARGE.marge_contribution_pct}%**
-- Marketing (~CAC/CA) : ${STRUCTURE_MARGE.marketing_pct}%
-- **Marge opérationnelle** : **${STRUCTURE_MARGE.marge_operationnelle_pct}%** (hors masse salariale Y1)
+### Investissement Initial : ${investissement_total.toLocaleString()} MAD (~${(investissement_total / 10.8).toFixed(0)} EUR)
+| Poste | MAD |
+|-------|-----|
+| Stock initial import France | ${INVESTISSEMENT_INITIAL.stock_initial_import.toLocaleString()} |
+| Adaptation + reformulation | ${INVESTISSEMENT_INITIAL.adaptation_reformulation.toLocaleString()} |
+| Certifications + légal | ${INVESTISSEMENT_INITIAL.certifications_legal.toLocaleString()} |
+| Packaging bilingue | ${INVESTISSEMENT_INITIAL.packaging_adaptation.toLocaleString()} |
+| Site Shopify Maroc | ${INVESTISSEMENT_INITIAL.site_shopify_maroc.toLocaleString()} |
+| Marketing lancement | ${INVESTISSEMENT_INITIAL.marketing_lancement.toLocaleString()} |
+| Tests cliniques Maroc | ${INVESTISSEMENT_INITIAL.tests_cliniques_maroc.toLocaleString()} |
+| Fonds de roulement | ${INVESTISSEMENT_INITIAL.fonds_roulement.toLocaleString()} |
+| **TOTAL** | **${investissement_total.toLocaleString()}** |
 
-### Point d\'équilibre estimé : **~${breakeven_mois} mois** (scénario M3 ramp-up)
+### Plan de Financement
+${FINANCEMENTS.map(f => `- **${f.source}** : ${f.montant_mad.toLocaleString()} MAD — ${f.note}`).join('\n')}
 
-### Financements Recommandés
-${FINANCEMENTS_DISPONIBLES.map(f => `- **${f.source}** : ${f.montant} → ${f.conditions}`).join('\n')}
+### Point Mort Estimé
+CA mensuel nécessaire (scénario réaliste) : **${(investissement_total / 12 / parseFloat(marge_contribution_pct) * 100).toFixed(0)} MAD/mois**
+→ Break-even estimé : **~M7–M8** (distribution importée = ramp-up plus lent que marque propre)
     `.trim();
 
     const recommandations = [
       this.creerRecommandation(
-        'Structurer l\'investissement : 70% propres + 30% CCG Damane',
-        'Lever 250K MAD : 175K fonds propres + 75K via CCG Damane Express. Éviter la dilution en phase pre-revenue. Le CCG réduit le risque banque.',
-        'fort', 'critique', 'M1'
+        'Négocier une consignation ou paiement à 60j avec routines.fr France',
+        'En tant que distributeur, éviter de payer le stock en avance. Objectif : consignation ou paiement à 60 jours. Cela préserve la trésorerie pour l\'adaptation et le marketing. Levier : MBF Cosmétique assure toute la mise en marché locale.',
+        'fort', 'critique', 'Accord distribution'
       ),
       this.creerRecommandation(
-        'Fixer les prix avec marge brute minimum 65%',
-        'Règle d\'or DTC beauté : COGS < 30% du prix de vente. Huile argan sérum = COGS 45 MAD → prix min 150 MAD → prix recommandé 290 MAD (premium justifié).',
+        'Fixer les prix MAD avec une marge brute minimum 50%',
+        'COGS import = 254 MAD. Prix minimum pour 50% marge = 508 MAD. Viser 450–550 MAD sur les sérums. En dessous de 350 MAD, la marge ne couvre pas le marketing. Le Kit Starter 249 MAD est un produit d\'acquisition (marge sacrifice acceptée).',
         'fort', 'critique', 'Avant lancement'
       ),
       this.creerRecommandation(
-        'Ouvrir une SAS en France pour l\'e-commerce routines.fr',
-        'Pour vendre légalement en France : structure FR obligatoire. SAS simplifiée : 1 EUR capital, ~1 500 EUR frais création. Ouvre droit au Prêt d\'honneur Bpifrance.',
+        'Ouvrir une SAS en France pour optimiser les flux import',
+        'Une structure française de MBF Cosmétique permet : achat direct à routines.fr en euros (évite double marge), numéro TVA intracommunautaire, accès Bpifrance. Coût : 1 500 EUR. Rentabilisé en 2 mois sur les économies de marge.',
         'fort', 'haute', 'M2'
       ),
       this.creerRecommandation(
-        'Mettre en place un tableau de bord financier hebdomadaire',
-        'Suivre chaque semaine : CA, CAC, ROAS, taux conversion, stock restant, trésorerie J+30/J+60. Ne jamais piloter à l\'aveugle. Outil gratuit : Google Sheets ou Notion.',
-        'fort', 'haute', 'Dès J1'
+        'Mettre en place un tableau de bord financier hebdomadaire dès J1',
+        'Tracker chaque semaine : stock disponible (unités), CA semaine, marge nette, CAC, trésorerie nette. Alerte si trésorerie < 50 000 MAD. Outil : Google Sheets partagé ou Notion.',
+        'fort', 'haute', 'J1'
       ),
       this.creerRecommandation(
-        'Proposer un abonnement mensuel (box routine)',
-        'Modèle subscription = revenu récurrent + LTV x2.5. Prix : 199 MAD/mois (3 produits pleine taille). Activer dès M3 quand le produit est validé.',
-        'fort', 'moyenne', 'M3'
+        'Ne pas réinvestir le CA avant M4 — reconstituer le stock en priorité',
+        'Le délai import France → Maroc est de 2–4 semaines. Avec du délai de reformulation, une rupture de stock peut immobiliser le business 6 semaines. Toujours garder 6 semaines de stock tampon.',
+        'fort', 'haute', 'Règle permanente'
       ),
     ];
 
     const kpis = [
-      this.creerKPI('Marge brute', 68, '%', 'Continu'),
-      this.creerKPI('CA cumulé M6', 900000, 'MAD', 'M6'),
-      this.creerKPI('Point mort (break-even)', 5, 'mois', 'M5'),
-      this.creerKPI('Trésorerie disponible (buffer)', 50000, 'MAD', 'Continu'),
-      this.creerKPI('LTV:CAC ratio', 5, 'x', 'M6'),
+      this.creerKPI('Marge brute (import + adaptation)', 53, '%', 'Continu'),
+      this.creerKPI('CA M12 (scénario réaliste)', ca_m12_realiste / 1000, 'K MAD', 'M12'),
+      this.creerKPI('Break-even mensuel', 8, 'mois', 'M8'),
+      this.creerKPI('Trésorerie buffer minimum', 50000, 'MAD', 'Permanent'),
+      this.creerKPI('Stock tampon (semaines)', 6, 'semaines', 'Permanent'),
+      this.creerKPI('COGS par unité (import + adapt.)', 254, 'MAD', 'M3'),
     ];
 
-    this.envoyerMessage('operations', 'Contrainte capital',
-      `Stock initial maximum : ${INVESTISSEMENT_INITIAL.stock_initial.toLocaleString()} MAD. Prioriser rotation rapide (J-30 vente sur stock).`,
-      { budget_stock: INVESTISSEMENT_INITIAL.stock_initial });
-    this.envoyerMessage('coordinator', 'Investissement total',
-      `Besoin total : ${investissement_total.toLocaleString()} MAD. Break-even estimé à ${breakeven_mois} mois.`,
-      { investissement: investissement_total, breakeven: breakeven_mois });
+    this.envoyerMessage('operations', 'Contrainte stocks import',
+      'Délai réapprovisionnement France : 3–4 semaines. Maintenir 6 semaines de stock tampon en permanence. Commander quand stock = 8 semaines restantes.',
+      { stock_initial: INVESTISSEMENT_INITIAL.stock_initial_import });
 
     return this.creerResultat(analyse, recommandations, kpis, [
-      `Trésorerie critique : ne jamais tomber sous 40 000 MAD de buffer. Surveiller chaque lundi.`,
-      'Ne pas reinvestir le CA avant M3 : reconstituer le stock et payer les prestataires d\'abord.',
-      'Fluctuation MAD/EUR : se couvrir si le sourcing France dépasse 20% des COGS.',
+      'RISQUE CHANGE — MAD/EUR fluctue. Si l\'EUR monte de 5%, COGS en MAD augmente de 12 MAD/unité. Surveiller le taux et provisionner.',
+      'Trésorerie critique : les délais import + certif + adaptation = 6–8 mois avant retour sur investissement. Ne pas sous-capitaliser.',
+      'TVA import Maroc (20%) est récupérable si MBF est assujetti TVA — ne pas oublier de s\'immatriculer avant le premier import.',
     ]);
   }
 }

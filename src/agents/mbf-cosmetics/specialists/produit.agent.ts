@@ -1,35 +1,85 @@
 import { AgentBase } from '../base.agent.js';
 import type { AgentContext, AgentResult } from '../types.js';
+import { ROUTINES_FR_BRAND, GAMMES_ROUTINES_FR, ECARTS_CULTURELS } from '../data/routines-fr.data.js';
 
-const INGREDIENTS_CLES = [
-  { nom: 'Huile d\'Argan Bio', origine: 'Coopérative féminine Sous, Agadir', cert: 'Ecocert + Halal', coût_kg: 45 },
-  { nom: 'Argile Rhassoul', origine: 'Moyen Atlas, Maroc', cert: 'Naturelle pure', coût_kg: 8 },
-  { nom: 'Eau Florale de Rose', origine: 'Vallée des roses, Kelaa M\'Gouna', cert: 'Bio', coût_kg: 12 },
-  { nom: 'Beurre de Cactus (Karité local)', origine: 'Maroc central', cert: 'Ecocert', coût_kg: 35 },
-  { nom: 'Acide Hyaluronique (synthèse éthique)', origine: 'Fournisseur certifié EU', cert: 'INCI clean', coût_kg: 180 },
+const REFORMULATIONS_PRIORITAIRES = [
+  {
+    produit: 'Crème jour SPF30',
+    probleme: 'SPF30 insuffisant pour l\'été marocain (IUV 10–12 en juillet–août)',
+    action: 'Reformuler en SPF50+ PA+++ avec filtres minéraux (dioxyde de titane + oxyde de zinc)',
+    cout_reformulation: '25 000–40 000 MAD (test + validation)',
+    urgence: 'critique',
+    timeline: 'M2–M4',
+  },
+  {
+    produit: 'Sérum vitamine C',
+    probleme: 'Formule optimisée phototypes I–III. Efficacité réduite sur phototypes IV–VI (peaux mates à foncées)',
+    action: 'Ajouter niacinamide 5% + acide kojique 1% pour efficacité anti-taches sur peaux maghrébines',
+    cout_reformulation: '15 000–25 000 MAD',
+    urgence: 'critique',
+    timeline: 'M1–M3',
+  },
+  {
+    produit: 'Masque argile',
+    probleme: 'Argile générique sans différenciation',
+    action: 'Substituer 40% de l\'argile par rhassoul du Moyen Atlas (Maroc). Actif local + storytelling fort',
+    cout_reformulation: '8 000–12 000 MAD (sourcing + reformulation mineure)',
+    urgence: 'haute',
+    timeline: 'M2–M3',
+  },
+  {
+    produit: 'Huile démaquillante',
+    probleme: 'Huile générique (jojoba Europe). Pas de différenciation locale',
+    action: 'Substituer par baume démaquillant à base de beurre de karité + argan bio marocain (15% du volume)',
+    cout_reformulation: '12 000–18 000 MAD',
+    urgence: 'haute',
+    timeline: 'M2–M3',
+  },
 ];
 
-const FABRICANTS_MAROC = [
-  { nom: 'Coprophac (Casablanca)', specialite: 'Cosmétiques hauts de gamme', moq: 500, delai: '8 semaines' },
-  { nom: 'Skin Lab Morocco (Rabat)', specialite: 'Clean beauty, halal', moq: 300, delai: '10 semaines' },
-  { nom: 'Cosmebio MA (Casablanca)', specialite: 'Bio certifié', moq: 1000, delai: '12 semaines' },
+const INGREDIENTS_LOCAUX_INTEGRATION = [
+  { ingredient: 'Huile d\'argan bio', origine: 'Coopérative Aït Souss, Agadir', pct_formule: '3–8%', cout_kg_mad: 450, certification: 'Ecocert + Halal' },
+  { ingredient: 'Rhassoul (argile volcanique)', origine: 'Moyen Atlas, Midelt', pct_formule: '20–40%', cout_kg_mad: 80, certification: 'Naturelle pure' },
+  { ingredient: 'Eau florale de rose', origine: 'Vallée des roses, Kelaa M\'Gouna', pct_formule: '60–80%', cout_kg_mad: 120, certification: 'Bio certifié' },
+  { ingredient: 'Beurre de karité (Maroc)', origine: 'Maroc central + Sahel MA', pct_formule: '5–15%', cout_kg_mad: 350, certification: 'Ecocert' },
+  { ingredient: 'Acide kojique (fermentation)', origine: 'Fournisseur certifié UE', pct_formule: '1%', cout_kg_mad: 1800, certification: 'INCI clean, halal' },
 ];
 
-const CERTIFICATIONS_REQUISES = {
-  maroc: ['Visa OMPIC-IMANOR', 'Déclaration Ministère de la Santé (Art. 10 loi 17-04)', 'Halal IMANOR'],
-  france: ['CPNP (Cosmetic Products Notification Portal EU)', 'Responsible Person (RP) désigné', 'INCI list conforme EU 1223/2009'],
-  international: ['Ecocert (optionnel mais différenciateur)', 'Cruelty-free (Leaping Bunny)'],
+const CERTIFICATIONS_MAROC = {
+  halal: {
+    organisme: 'IMANOR (Rabat)',
+    standard: 'NM 08.0.800 + OIC/SMIIC 1:2019',
+    exigences: ['Absence alcool éthylique > 0.1%', 'Absence dérivés porcins', 'Traçabilité ingrédients', 'Audit site fabrication'],
+    cout_mad: 15000,
+    duree: '3–6 mois',
+    remarque: 'Le CMO doit également être audité halal. Choisir Skin Lab Morocco (déjà certifié).',
+  },
+  dmp_maroc: {
+    organisme: 'Direction du Médicament et de la Pharmacie',
+    exigences: ['Dossier technique complet', 'Étiquetage bilingue AR/FR', 'Safety assessment', 'Coordonnées importateur marocain'],
+    cout_par_sku_mad: 8000,
+    total_6skus: 48000,
+    delai: '6–8 semaines par SKU',
+  },
+  etiquetage_obligatoire: [
+    'Nom du produit en arabe + français',
+    'Ingrédients INCI en latin (obligatoire)',
+    'Poids net en arabe + latin',
+    'Durée de conservation (PAO + DLUO)',
+    'Coordonnées de l\'importateur marocain',
+    'Pays d\'origine : "Fabriqué en France" ou "Formulé en France, conditionné au Maroc"',
+  ],
 };
 
 export class ProduitAgent extends AgentBase {
   readonly role = 'produit' as const;
-  readonly domaine = 'Développement Produit & Formulation';
+  readonly domaine = 'Développement Produit & Adaptation Formules';
   readonly expertise = [
-    'Réglementation cosmétique MA/EU',
-    'Sourcing ingrédients naturels Maroc',
-    'Contract manufacturing (CMO)',
-    'Certifications halal/bio/clean',
-    'Gestion qualité et sécurité produit',
+    'Reformulation pour phototypes IV–VI (peaux maghrébines)',
+    'Intégration ingrédients locaux marocains',
+    'Certification halal IMANOR + DMP Maroc',
+    'Adaptation climatique des formules (chaleur, humidité)',
+    'Gestion CMO et contrôle qualité',
   ];
 
   constructor(contexte: AgentContext) {
@@ -37,86 +87,121 @@ export class ProduitAgent extends AgentBase {
   }
 
   analyser(): AgentResult {
+    const cout_total_reformulation = REFORMULATIONS_PRIORITAIRES
+      .reduce((sum, r) => sum + (r.cout_reformulation.split('–').map(Number)[0] ?? 0) * 1000, 0) / 1000;
+    const cout_certifs = CERTIFICATIONS_MAROC.halal.cout_mad + CERTIFICATIONS_MAROC.dmp_maroc.total_6skus;
+
     const analyse = `
-## Développement Produit — routines.fr
+## Développement Produit — Adaptation routines.fr pour le Marché Marocain
 
-### Stratégie Formulation
-Approche **"Heritage + Science"** :
-- Ingrédients marocains iconiques (argan, rhassoul, rose) en position hero (>5% actif)
-- Actifs scientifiquement validés en support (HA, niacinamide, panthenol)
-- Formules clean : 0 paraben, 0 sulfate, 0 silicone, liste positive INCI
+### Situation de Départ
+routines.fr est une marque **${ROUTINES_FR_BRAND.certifications_actuelles.join(', ')}**.
+Ce qui manque pour le Maroc : **${ROUTINES_FR_BRAND.certifications_manquantes_maroc.join(' | ')}**.
 
-### Ingrédients Sourcing (circuit court Maroc)
-${INGREDIENTS_CLES.map(i => `- **${i.nom}** — ${i.origine} | ${i.cert} | ~${i.coût_kg} EUR/kg`).join('\n')}
+Les formules françaises ont été développées pour phototypes I–III (peaux claires européennes).
+Au Maroc : phototypes IV–VI dominants → certains actifs nécessitent un ajustement de concentration.
 
-### Partenaires CMO Recommandés
-${FABRICANTS_MAROC.map(f => `- **${f.nom}** : ${f.specialite} | MOQ ${f.moq} unités | délai ${f.delai}`).join('\n')}
+### Reformulations Prioritaires (par ordre d\'urgence)
+${REFORMULATIONS_PRIORITAIRES.map((r, i) =>
+  `**${i + 1}. ${r.produit}** [${r.urgence.toUpperCase()}]
+  Problème : ${r.probleme}
+  Action : ${r.action}
+  Coût : ${r.cout_reformulation}
+  Timeline : ${r.timeline}`
+).join('\n\n')}
 
-**Recommandation** : Commencer avec **Skin Lab Morocco** (MOQ 300 = moins de capital immobilisé)
+### Intégration Ingrédients Marocains (Différenciation)
+${INGREDIENTS_LOCAUX_INTEGRATION.map(ing =>
+  `- **${ing.ingredient}** (${ing.origine})
+    Usage : ${ing.pct_formule} | Coût : ${ing.cout_kg_mad} MAD/kg | Cert : ${ing.certification}`
+).join('\n')}
 
-### Conformité Réglementaire
-**Maroc** : ${CERTIFICATIONS_REQUISES.maroc.join(' + ')}
-**France/EU** : ${CERTIFICATIONS_REQUISES.france.join(' + ')}
+### Certifications Obligatoires Maroc
 
-### Plan Formulation Y1 (6 SKUs)
-1. Huile Argan Sérum (30ml) — coût COGS cible : 45 MAD / 4.5 EUR
-2. Crème Jour SPF30 (50ml) — COGS cible : 65 MAD / 6.5 EUR
-3. Nettoyant Doux (150ml) — COGS cible : 30 MAD / 3 EUR
-4. Masque Rhassoul (100g) — COGS cible : 35 MAD / 3.5 EUR
-5. Eau Florale Rose (100ml) — COGS cible : 20 MAD / 2 EUR
-6. Kit Discovery (3x30ml) — COGS cible : 90 MAD / 9 EUR
+**Halal IMANOR**
+- Organisme : ${CERTIFICATIONS_MAROC.halal.organisme}
+- Exigences : ${CERTIFICATIONS_MAROC.halal.exigences.join(', ')}
+- Coût : ${CERTIFICATIONS_MAROC.halal.cout_mad.toLocaleString()} MAD | Durée : ${CERTIFICATIONS_MAROC.halal.duree}
+- ⚠️  ${CERTIFICATIONS_MAROC.halal.remarque}
 
-**Marge brute cible : 68–72%** (prix cible vs COGS)
+**Déclaration DMP (Direction Médicament & Pharmacie)**
+- ${CERTIFICATIONS_MAROC.dmp_maroc.exigences.join(', ')}
+- Coût : ${CERTIFICATIONS_MAROC.dmp_maroc.cout_par_sku_mad.toLocaleString()} MAD/SKU × 6 = **${CERTIFICATIONS_MAROC.dmp_maroc.total_6skus.toLocaleString()} MAD total**
+- Délai : ${CERTIFICATIONS_MAROC.dmp_maroc.delai}
+
+**Étiquetage bilingue obligatoire** (Art. 11, loi 17-04) :
+${CERTIFICATIONS_MAROC.etiquetage_obligatoire.map(e => `- ${e}`).join('\n')}
+
+### Gammes Importées vs Adaptées
+
+| Gamme (France) | Adaptation Maroc | Ingrédient local ajouté |
+|---------------|-----------------|------------------------|
+${GAMMES_ROUTINES_FR.map(g =>
+  `| ${g.gamme} | ${g.adaptation_maroc.enjeu.substring(0, 50)}... | Voir reformulations |`
+).join('\n')}
+
+### Budget Produit — Adaptation Complète
+| Poste | Coût MAD |
+|-------|----------|
+| Reformulations (4 produits) | ~${(cout_total_reformulation).toLocaleString()} |
+| Certification Halal IMANOR | ${CERTIFICATIONS_MAROC.halal.cout_mad.toLocaleString()} |
+| Déclarations DMP (6 SKUs) | ${CERTIFICATIONS_MAROC.dmp_maroc.total_6skus.toLocaleString()} |
+| Tests cliniques panel marocain | ~20 000 |
+| **TOTAL** | **~${(cout_total_reformulation + cout_certifs + 20000).toLocaleString()} MAD** |
     `.trim();
 
     const recommandations = [
       this.creerRecommandation(
-        'Signer avec Skin Lab Morocco dès M1',
-        'Négocier un accord-cadre : 300 unités/SKU à J1, clause d\'augmentation à 1000 unités si sell-through >70% en 60 jours. Obtenir exclusivité formule 18 mois.',
-        'fort', 'critique', 'Semaine 2–4',
-        ['Budget initial formulation : 50 000–80 000 MAD', 'Brief formulation validé par brand']
+        'Reformuler le sérum vitamine C pour phototypes IV–VI en priorité absolue',
+        'Ajouter niacinamide 5% + kojique 1% au sérum vitamine C existant. Ce produit devient le héros anti-taches Maroc. Coût reformulation : 15–25K MAD. Sans ça, la promesse anti-taches est vide.',
+        'fort', 'critique', 'M1–M3',
+        ['Formule originale routines.fr transmise par CMO France', 'Accord marque pour adaptation locale']
       ),
       this.creerRecommandation(
-        'Déposer CPNP France avant tout envoi vers UE',
-        'La notification CPNP (gratuite via portail UE) est obligatoire. Désigner un Responsible Person en France (cabinet spécialisé ~500 EUR/an).',
-        'fort', 'critique', 'M1',
-        ['Formules finalisées avec INCI list complète']
+        'Choisir Skin Lab Morocco comme CMO (déjà certifié halal)',
+        'Le CMO doit impérativement être certifié halal pour que la certification produit soit valide. Skin Lab Morocco (Rabat) est pré-certifié halal et spécialisé clean beauty. MOQ 300 unités. Délai 10 semaines.',
+        'fort', 'critique', 'Semaine 2',
+        ['Signature accord de confidentialité (NDA)', 'Transmission formules routines.fr']
       ),
       this.creerRecommandation(
-        'Obtenir certification Halal IMANOR dès le départ',
-        'L\'audit IMANOR Halal (≈15 000 MAD) est un différenciateur commercial fort sur les deux marchés. Positionner comme standard, pas comme option.',
+        'Réaliser des tests cliniques sur 30 femmes marocaines avant production série',
+        'Panel : 30 femmes Casablanca/Rabat, phototypes IV–VI, âges 22–45. Tester tolérance, efficacité et sensations (texture, odeur). Budget : 15 000–20 000 MAD. Résultats = argument marketing (avant/après réels).',
         'fort', 'haute', 'M2–M3'
       ),
       this.creerRecommandation(
-        'Sourcer l\'argan via coopérative féminine certifiée',
-        'Partenariat direct avec 1 coopérative (Taroudant/Agadir). Avantage : coût -20% vs intermédiaires + storytelling fort + label équitable.',
-        'fort', 'haute', 'M1',
+        'Sourcer l\'argan et le rhassoul en circuit direct coopérative',
+        'Contact direct avec Aït Souss (argan) et groupement Midelt (rhassoul). Avantages : -20% sur prix négo vs distributeur, traçabilité totale, storytelling fort "ingrédient de source". Formaliser par contrat d\'approvisionnement annuel.',
+        'fort', 'haute', 'M1'
       ),
       this.creerRecommandation(
-        'Tester les formules sur 20 "beta-testers" locaux',
-        'Recrutement via Instagram. Formulaires dermatologiques. Retours à intégrer avant production série. Budget : 0 (produits gratuits contre feedback).',
-        'moyen', 'haute', 'M2'
+        'Démarrer l\'audit IMANOR dès la signature du CMO',
+        'L\'audit halal prend 3–6 mois. Initier dès M1. Sans halal, 65% des consommatrices marocaines ne considèrent pas l\'achat. C\'est la certification la plus impactante sur les ventes Maroc.',
+        'fort', 'critique', 'M1',
+        ['CMO Skin Lab Morocco certifié halal confirmé']
       ),
     ];
 
     const kpis = [
-      this.creerKPI('COGS moyen pondéré', 48, 'MAD/unité', 'Production Y1'),
-      this.creerKPI('Marge brute produit', 70, '%', 'M6'),
-      this.creerKPI('Taux de défauts QC', 0.5, '%', 'Continu'),
-      this.creerKPI('Délai formulation → stock', 10, 'semaines', 'M3'),
+      this.creerKPI('SKUs reformulés (anti-taches + SPF50)', 2, 'produits', 'M4'),
+      this.creerKPI('Certification Halal IMANOR obtenue', 1, 'certification', 'M6'),
+      this.creerKPI('SKUs déclarés DMP Maroc', 6, 'produits', 'M4'),
+      this.creerKPI('COGS moyen par unité', 55, 'MAD', 'Production M4'),
+      this.creerKPI('Marge brute produit', 68, '%', 'M4'),
+      this.creerKPI('Taux défauts QC', 0.3, '%', 'Continu'),
     ];
 
-    this.envoyerMessage('operations', 'Brief fabrication',
-      'CMO recommandé : Skin Lab Morocco. MOQ 300 unités. 6 SKUs Y1. Délai 10 semaines. Besoin logistique inbound matières premières.',
-      { fabricants: FABRICANTS_MAROC, skus_count: 6 });
-    this.envoyerMessage('legal', 'Checklist conformité',
-      'Besoin CPNP France + Déclaration MS Maroc + Halal IMANOR. Fournir template INCI list validée pour chaque formule.',
-      { certifications: CERTIFICATIONS_REQUISES });
+    this.envoyerMessage('legal', 'Dossiers réglementaires à préparer',
+      `6 SKUs × DMP Maroc = ${CERTIFICATIONS_MAROC.dmp_maroc.total_6skus.toLocaleString()} MAD. Halal IMANOR = ${CERTIFICATIONS_MAROC.halal.cout_mad.toLocaleString()} MAD. Étiquetage bilingue obligatoire. Prévoir toxicologue pour safety assessment.`,
+      { certifs: ['halal', 'dmp', 'etiquetage_bilingue'] });
+    this.envoyerMessage('finance', 'Budget adaptation produit',
+      `Total adaptation + certifs + tests : ~${(cout_total_reformulation + cout_certifs + 20000).toLocaleString()} MAD à prévoir en Y1.`,
+      {});
 
     return this.creerResultat(analyse, recommandations, kpis, [
-      'Jamais lancer en France sans CPNP : risque douanier + retrait de marché.',
-      'Vérifier que l\'huile d\'argan sourcing est tracée (lutte contre fraudes + export MAR).',
-      'Tester la stabilité des formules (6 mois minimum) avant lancement grande série.',
+      'CRITIQUE — Ne jamais importer et vendre sans déclaration DMP Maroc. Risque saisie + amende + image.',
+      'SPF50 obligatoire en été (juin–août). SPF30 sera perçu comme insuffisant par les consommatrices informées.',
+      'Vérifier que les formules FR ne contiennent pas d\'alcool éthylique > 0.1% (bloquant pour certification halal).',
+      'Certains conservateurs utilisés en France (phénoxyéthanol, chlorphénésine) sont limités en halal — vérifier avant reformulation.',
     ]);
   }
 }

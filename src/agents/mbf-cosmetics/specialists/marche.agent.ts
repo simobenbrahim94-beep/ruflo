@@ -1,16 +1,17 @@
 import { AgentBase } from '../base.agent.js';
 import type { AgentContext, AgentResult } from '../types.js';
 import { MAROC_COSMETIQUES, FRANCE_DIASPORA, SEGMENTS_CIBLES, TENDANCES_MARCHE } from '../data/market.data.js';
+import { ROUTINES_FR_BRAND, ECARTS_CULTURELS } from '../data/routines-fr.data.js';
 
 export class MarcheAgent extends AgentBase {
   readonly role = 'marche' as const;
   readonly domaine = 'Intelligence Marché & Veille Concurrentielle';
   readonly expertise = [
-    'Analyse marché cosmétique Maroc/France',
-    'Segmentation consommateurs MENA',
-    'Benchmarking concurrentiel',
-    'Tendances clean beauty & halal',
-    'Sizing TAM/SAM/SOM',
+    'Analyse marché cosmétique Maroc (segments, canaux, prix)',
+    'Adaptation marque étrangère au contexte MENA',
+    'Veille concurrentielle Casablanca / Rabat / Marrakech',
+    'Comportement consommateur marocain digital',
+    'Sizing TAM/SAM/SOM + scénarios réalistes',
   ];
 
   constructor(contexte: AgentContext) {
@@ -18,82 +19,126 @@ export class MarcheAgent extends AgentBase {
   }
 
   analyser(): AgentResult {
-    const tam = MAROC_COSMETIQUES.taille;
-    const sam = tam * 0.38; // soin peau = segment cible
-    const som_y1 = sam * 0.005; // 0.5% réaliste Y1
-    const som_y3 = sam * 0.025; // 2.5% avec croissance
+    const tam = MAROC_COSMETIQUES.taille; // 820M USD
+    const sam = tam * 0.38;               // soin visage = 38%
+    const som_y1 = sam * 0.004;           // 0.4% réaliste an 1 (marque importée)
+    const som_y3 = sam * 0.022;           // 2.2% an 3 avec notoriété
+
+    const ecartsCritiques = ECARTS_CULTURELS.filter(e => e.urgence === 'critique');
 
     const analyse = `
-## Analyse Marché MBF Cosmétique / routines.fr
+## Analyse Marché — routines.fr by MBF Cosmétique (Adaptation France → Maroc)
 
-### Marché Maroc
-- **TAM** : ${tam}M USD (marché cosmétique total Maroc 2025)
-- **Croissance** : ${MAROC_COSMETIQUES.croissance}% CAGR — portée par digital + classe moyenne urbaine
-- **SAM** (soin peau + clean beauty) : ${sam.toFixed(0)}M USD
-- **SOM Y1** : ${som_y1.toFixed(1)}M USD → **SOM Y3** : ${som_y3.toFixed(1)}M USD
+### Contexte de la marque
+**${ROUTINES_FR_BRAND.nom}** est une marque ${ROUTINES_FR_BRAND.type} d'origine ${ROUTINES_FR_BRAND.pays_origine}.
+Promesse originale : "${ROUTINES_FR_BRAND.promesse_fr}"
+Distribution France : ${ROUTINES_FR_BRAND.canal_distribution_fr.join(', ')}
 
-### Marché France (segment diaspora + affinité)
-- **Taille segment** : ${FRANCE_DIASPORA.taille}M EUR
-- **Croissance** : ${FRANCE_DIASPORA.croissance}% — diaspora 2.5M + clean beauty mainstream
-- Canal .fr : D2C Shopify + Amazon.fr
+L'enjeu de MBF Cosmétique : importer CE produit en l'adaptant au marché marocain —
+sans perdre l'ADN de la marque, mais en comblant les ${ROUTINES_FR_BRAND.faiblesses_vs_maroc.length} écarts identifiés.
 
-### Opportunité Compétitive
-routines.fr se positionne dans un **white space** :
-> Aucun acteur ne combine *ingrédients marocains iconiques + clean formulas + système de routines simples + canal digital natif*.
+### Sizing Marché Maroc
+| Indicateur | Valeur | Note |
+|-----------|--------|------|
+| **TAM** (marché cosméto total Maroc 2025) | ${tam}M USD | Source : AMITH + Euromonitor |
+| **SAM** (soin visage + clean beauty) | ${sam.toFixed(0)}M USD | Segment cœur de cible |
+| **SOM Y1** (scénario réaliste) | ${som_y1.toFixed(1)}M USD | Marque importée = ramp-up lent |
+| **SOM Y3** (avec notoriété établie) | ${som_y3.toFixed(1)}M USD | +certif halal + retail sélectif |
+| **Croissance sectorielle** | ${MAROC_COSMETIQUES.croissance}% CAGR | Portée par digital + classe moyenne |
 
-**Top tendances à capturer** :
-${TENDANCES_MARCHE.slice(0, 4).map(t => `- ${t.tendance} → +${t.croissance}% (${t.opportunite})`).join('\n')}
+### Marché France — Diaspora marocaine
+- Segment diaspora + affinité culturelle : **${FRANCE_DIASPORA.taille}M EUR**
+- Croissance : **${FRANCE_DIASPORA.croissance}%** — nostalgie culturelle × clean beauty
+- Avantage compétitif : routines.fr est déjà présente France → pas de lancement à froid
 
-### Segments Cibles
-- **Primaire** : ${SEGMENTS_CIBLES.primaire.profil}
-  - Panier moyen : ${SEGMENTS_CIBLES.primaire.panier_moyen} MAD | ${SEGMENTS_CIBLES.primaire.frequence_achat}x/an
-- **Secondaire** : ${SEGMENTS_CIBLES.secondaire.profil}
-  - Panier moyen : ${SEGMENTS_CIBLES.secondaire.panier_moyen} EUR | ${SEGMENTS_CIBLES.secondaire.frequence_achat}x/an
+### Segmentation Consommatrices Maroc
+
+**Segment PRIMAIRE — "La Marocaine Moderne Urbaine"**
+${SEGMENTS_CIBLES.primaire.profil}
+- Revenus : ${SEGMENTS_CIBLES.primaire.revenus}
+- Comportement : ${SEGMENTS_CIBLES.primaire.comportement}
+- Panier moyen : **${SEGMENTS_CIBLES.primaire.panier_moyen} MAD** | ${SEGMENTS_CIBLES.primaire.frequence_achat} achats/an
+- Canal préféré : ${SEGMENTS_CIBLES.primaire.canal_prefere}
+- Douleur n°1 : **hyperpigmentation et taches** (68% concernées)
+- Douleur n°2 : **peau grasse zone T + desséchement joues** (climat continental)
+
+**Segment SECONDAIRE — Diaspora marocaine France**
+${SEGMENTS_CIBLES.secondaire.profil}
+- Panier moyen : **${SEGMENTS_CIBLES.secondaire.panier_moyen} EUR** | ${SEGMENTS_CIBLES.secondaire.frequence_achat} achats/an
+- Attrait : marque française qu'elles connaissent déjà, adaptée à leur identité
+
+### Écarts France → Maroc à combler EN PRIORITÉ
+${ecartsCritiques.map(e =>
+  `⚠️  **${e.dimension}**
+   Situation France : ${e.situation_fr}
+   Situation Maroc : ${e.situation_maroc}
+   → Action : ${e.action}`
+).join('\n\n')}
+
+### Opportunité Compétitive Unique
+routines.fr arrive avec un **avantage rare** : marque déjà crédible en France.
+Au Maroc, "marque française" = signal de qualité et modernité.
+Combiné à une adaptation locale soignée (halal + darija + anti-taches) = positionnement inattaquable.
+
+Aucun concurrent local ne cumule : *crédibilité France + clean formulas + certif halal + routine system*.
+
+### Top Tendances Marché à Capturer
+${TENDANCES_MARCHE.map(t => `- **${t.tendance}** → +${t.croissance}% | Opportunité : ${t.opportunite}`).join('\n')}
     `.trim();
 
     const recommandations = [
       this.creerRecommandation(
-        'Focus D2C Maroc avant retail',
-        'Lancer exclusivement en ligne (site + Instagram) pendant 6 mois. Collecter la data consommateurs avant toute négociation retail.',
-        'fort', 'critique', 'Mois 1–6'
+        'Tester la réception "Marque française" auprès de 100 femmes marocaines',
+        'Avant tout investissement, réaliser 10 focus groups en ligne (Instagram Stories poll + WhatsApp). Question clé : "Une marque française clean beauty adaptée halal, combien paieriez-vous ?" Les résultats calibreront le pricing et le messaging.',
+        'fort', 'critique', 'Semaine 1–2'
       ),
       this.creerRecommandation(
-        'Tester le marché France dès le lancement',
-        'Activer routines.fr (France) en simultané avec landing page + Meta Ads ciblant diaspora marocaine Île-de-France.',
-        'fort', 'haute', 'Mois 1'
+        'Positionner "anti-taches" comme promesse n°1 au Maroc',
+        'La promesse française "routine simple et efficace" doit être adaptée : au Maroc la promesse doit être "peau éclatante sans taches". C\'est le problème n°1. Sérum anti-taches = produit héros Maroc (même si ce n\'est pas le cas en France).',
+        'fort', 'critique', 'Brief marketing M1'
       ),
       this.creerRecommandation(
-        'Exploiter le white-space "routines minimalistes halal"',
-        'Positionner chaque produit comme étape d\'une routine : Routine Matin, Routine Soir, Routine Semaine. Éduquer plutôt que vendre.',
-        'fort', 'critique', 'Stratégie dès J1'
+        'D2C exclusif pendant 9 mois, puis approcher Marjane/L\'Boulvard',
+        'Lancer 100% en ligne. Collecter 500 commandes Maroc avant toute négociation retail. Les données de vente sont le meilleur argument commercial pour Marjane Beauty.',
+        'fort', 'critique', 'M1–M9'
       ),
       this.creerRecommandation(
-        'Surveillance concurrentielle mensuelle',
-        'Mettre en place un tracking des prix, lancements et avis de L\'Oréal, Typology et marques locales. Réagir en 72h sur les écarts de prix.',
-        'moyen', 'moyenne', 'Mensuel continu'
+        'Surveillance hebdomadaire des marques locales émergentes',
+        'Karicia, Melvita Maroc, et nouvelles marques Instagram à surveiller. Tracker leurs lancements produits, prix, et contenus TikTok. Réagir sous 72h si concurrent lance sur anti-taches.',
+        'moyen', 'moyenne', 'Hebdomadaire'
       ),
       this.creerRecommandation(
-        'Piloter le score NPS dès le 1er colis',
-        'Envoyer une enquête satisfaction à J+7 de chaque commande. Objectif NPS > 60 en 90 jours.',
-        'fort', 'haute', 'Mois 1'
+        'Anticiper la saisonnalité marocaine dans le plan marché',
+        'Pics de vente : Aïd al-Adha (été), Ramadan (printemps), rentrée septembre, fêtes de fin d\'année. Creuses : juillet–août (budget vacances). Plan stocks + marketing calé sur ce calendrier.',
+        'fort', 'haute', 'Plan annuel'
       ),
     ];
 
     const kpis = [
-      this.creerKPI('Part de marché soin peau (Maroc)', 0.5, '% SAM', 'Fin Y1'),
-      this.creerKPI('Notoriété assistée (sondage)', 15, '%', 'M6'),
-      this.creerKPI('Share of Search routines.fr', 3, '%', 'M12'),
-      this.creerKPI('NPS client', 60, 'points', 'M3'),
+      this.creerKPI('SOM Maroc Y1 (CA)', som_y1.toFixed(1), 'M USD', 'Fin Y1'),
+      this.creerKPI('Notoriété assistée Casablanca + Rabat', 20, '%', 'M9'),
+      this.creerKPI('Share of Search "routines soin Maroc"', 5, '%', 'M12'),
+      this.creerKPI('NPS client (benchmark marque importée)', 65, 'points', 'M3'),
+      this.creerKPI('Taux réachat M6', 35, '%', 'M6'),
+      this.creerKPI('Commandes Maroc cumulées M6', 1500, 'commandes', 'M6'),
     ];
 
     const alertes = [
-      `Import gris (25% du marché Maroc) : risque de substitution sur les prix — différencier par certification halal + SAV + branding.`,
-      `Saison de vente pic : Ramadan (Robes, soins corps) + Été (protection solaire). Anticiper les stocks 8 semaines avant.`,
-      `Entrée potentielle Deciem/The Ordinary sur Maroc : surveiller les ouvertures de distribution.`,
+      `CRITIQUE — Import gris (25% du marché Maroc) : des produits routines.fr France pourraient déjà circuler via revendeurs informels. Surveiller Jumia + Facebook Marketplace avant lancement.`,
+      `TIMING — Ramadan 2027 tombe en janvier. Préparer une campagne "Routine Ramadan" (soin peau sous voile, lèvres hydratées, teint pendant le jeûne) dès M9.`,
+      `RISQUE — Marché saturé par The Ordinary qui s'étend au Maroc via distribution pharmacies. Se différencier sur l'émotion et la culture, pas seulement sur les actifs.`,
+      `OPPORTUNITÉ — TikTok Maroc : 12M+ utilisateurs actifs. Les vidéos "routine en 3 étapes" en darija font régulièrement 500K+ vues. Canal gratuit à activer en priorité.`,
     ];
 
-    this.envoyerMessage('brand', 'Opportunité positionnement', 'White space confirmé : routines minimalistes halal + ingrédients marocains. Aucun concurrent ne tient ce carré.', { som_y1, som_y3 });
-    this.envoyerMessage('finance', 'Données TAM/SAM/SOM', `SAM=${sam.toFixed(0)}M USD, SOM Y1=${som_y1.toFixed(1)}M, SOM Y3=${som_y3.toFixed(1)}M`, { tam, sam, som_y1, som_y3 });
+    this.envoyerMessage('brand', 'Insight marché critique',
+      'Anti-taches = promesse n°1 au Maroc. La promesse française doit être adaptée. Sérum anti-taches = héros Maroc. Brief identité à revoir.',
+      { segment_primaire: SEGMENTS_CIBLES.primaire, ecarts_critiques: ecartsCritiques.length });
+    this.envoyerMessage('finance', 'Données sizing',
+      `SAM=${sam.toFixed(0)}M USD, SOM Y1=${som_y1.toFixed(1)}M, SOM Y3=${som_y3.toFixed(1)}M. Marque importée = ramp-up 15–18 mois avant profitabilité.`,
+      { tam, sam, som_y1, som_y3 });
+    this.envoyerMessage('produit', 'Reformulation prioritaire',
+      'Écarts critiques identifiés : (1) halal manquant, (2) SPF30→50 pour été marocain, (3) tester formules phototype IV–VI. Voir ECARTS_CULTURELS.',
+      { ecarts: ECARTS_CULTURELS.map(e => e.dimension) });
 
     return this.creerResultat(analyse, recommandations, kpis, alertes);
   }
