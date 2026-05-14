@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "pixa": {
-      "command": "npx",
-      "args": ["-y", "pixa-mcp@latest"],
+    "pixverse": {
+      "command": "uvx",
+      "args": ["pixverse-mcp"],
       "env": {
-        "PIXA_API_KEY": "${PIXA_API_KEY}"
+        "PIXVERSE_API_KEY": "${PIXVERSE_API_KEY}"
       }
     },
     "flow-nexus": {

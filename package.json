@@ -52,7 +52,7 @@
     "v3:domains": "npm run build:domains",
     "v3:swarm": "npm run start:swarm",
     "v3:security": "npm run security:audit && npm run security:test",
-    "pixa:init": "npx pixa-mcp@latest init"
+    "pixverse:init": "uvx pixverse-mcp"
   },
   "dependencies": {
     "@claude-flow/cli-core": "^3.7.0-alpha.5",
