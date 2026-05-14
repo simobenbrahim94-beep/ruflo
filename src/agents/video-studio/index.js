@@ -188,7 +188,9 @@ export class VideoStudioDirector extends EventEmitter {
     if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST) {
       const model = useCreativeModel ? MODEL_CREATIVE : MODEL;
       const fullPrompt = `${AGENTS[agentId]}\n\n${userPrompt}`;
-      const { stdout } = await execFileAsync('claude', ['-p', '--model', model, fullPrompt], {
+      // Pipe prompt via stdin to avoid ARG_MAX limits on long prompts.
+      const { stdout } = await execFileAsync('claude', ['-p', '--model', model], {
+        input: fullPrompt,
         timeout: 120_000,
         maxBuffer: 4 * 1024 * 1024,
       });

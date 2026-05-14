@@ -419,7 +419,8 @@ export class CoordinateurMarocain extends EventEmitter {
     try {
       let sortie, tokens;
       if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST) {
-        const { stdout } = await execFileAsync('claude', ['-p', '--model', MODEL, `${systemPrompt}\n\n${userPrompt}`], {
+        const { stdout } = await execFileAsync('claude', ['-p', '--model', MODEL], {
+          input: `${systemPrompt}\n\n${userPrompt}`,
           timeout: 90_000,
           maxBuffer: 4 * 1024 * 1024,
         });
