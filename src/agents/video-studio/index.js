@@ -4,11 +4,33 @@
  */
 
 import { EventEmitter } from 'events';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 
-const execFileAsync = promisify(execFile);
+// Spawn claude CLI with prompt piped via stdin (execFile's `input` option doesn't work
+// when the parent process has stdin redirected from /dev/null).
+function spawnClaude(args, prompt, timeout = 300_000) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('claude', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) { done = true; proc.kill(); reject(new Error(`claude timed out after ${timeout}ms`)); }
+    }, timeout);
+    proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+    proc.on('close', code => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (code !== 0) reject(new Error(stderr.slice(0, 300) || `claude exit ${code}`));
+      else resolve(stdout.trim());
+    });
+    proc.stdin.write(prompt, 'utf8');
+    proc.stdin.end();
+  });
+}
 import {
   detectAvailableAPIs,
   ElevenLabsAPI,
@@ -186,15 +208,9 @@ export class VideoStudioDirector extends EventEmitter {
   async _callAgent(agentId, userPrompt, useCreativeModel = false) {
     // When running under Claude Code host auth (no ANTHROPIC_API_KEY), delegate to CLI.
     if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST) {
-      const model = useCreativeModel ? MODEL_CREATIVE : MODEL;
+      const cliModel = useCreativeModel ? 'sonnet' : 'haiku';
       const fullPrompt = `${AGENTS[agentId]}\n\n${userPrompt}`;
-      // Pipe prompt via stdin to avoid ARG_MAX limits on long prompts.
-      const { stdout } = await execFileAsync('claude', ['-p', '--model', model], {
-        input: fullPrompt,
-        timeout: 120_000,
-        maxBuffer: 4 * 1024 * 1024,
-      });
-      return stdout.trim();
+      return spawnClaude(['-p', '--model', cliModel], fullPrompt);
     }
     const response = await this.client.messages.create({
       model: useCreativeModel ? MODEL_CREATIVE : MODEL,

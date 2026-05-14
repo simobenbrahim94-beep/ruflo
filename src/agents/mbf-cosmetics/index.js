@@ -1,9 +1,29 @@
 import { EventEmitter } from 'events';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 
-const execFileAsync = promisify(execFile);
+function spawnClaude(args, prompt, timeout = 60_000) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('claude', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) { done = true; proc.kill(); reject(new Error(`claude timed out`)); }
+    }, timeout);
+    proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+    proc.on('close', code => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (code !== 0) reject(new Error(stderr.slice(0, 300) || `claude exit ${code}`));
+      else resolve(stdout.trim());
+    });
+    proc.stdin.write(prompt, 'utf8');
+    proc.stdin.end();
+  });
+}
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
@@ -148,12 +168,7 @@ export class MBFCoordinator extends EventEmitter {
     try {
       let sortie, tokens;
       if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST) {
-        const { stdout } = await execFileAsync('claude', ['-p', '--model', MODEL], {
-          input: `${systemPrompt}\n\n${userPrompt}`,
-          timeout: 60_000,
-          maxBuffer: 2 * 1024 * 1024,
-        });
-        sortie = stdout.trim();
+        sortie = await spawnClaude(['-p', '--model', 'haiku'], `${systemPrompt}\n\n${userPrompt}`, 60_000);
         tokens = 0;
       } else {
         const response = await this.client.messages.create({
