@@ -33,10 +33,12 @@ function spawnClaude(args, prompt, timeout = 300_000) {
 }
 import {
   detectAvailableAPIs,
+  selectVideoAPI,
   ElevenLabsAPI,
   RunwayAPI,
   StabilityAPI,
   KlingAPI,
+  PikaAPI,
   MockVideoAPIs,
 } from '../../skills/video/apis.js';
 import {
@@ -343,45 +345,65 @@ Produis le plan de production final exécutable :
   }
 
   async _renderAssets(c) {
-    const hasMock = c.apisContext.mock;
-    const hasReal = c.apisContext.runway || c.apisContext.stability || c.apisContext.elevenlabs;
+    const apis = c.apisContext;
+    const hasMock = apis.mock;
+    const hasReal = apis.runway || apis.stability || apis.kling || apis.pika || apis.elevenlabs;
+
     if (!hasMock && !hasReal) {
-      return 'Aucune API configurée — assets non générés. Définir USE_MOCK_APIS=1 ou les clés API réelles.';
+      return [
+        'Aucune API configurée.',
+        'Mode mock  : USE_MOCK_APIS=1',
+        'APIs réels : voir config/video-apis.env.example',
+        'Signup gratuit : runwayml.com · elevenlabs.io · klingai.com · stability.ai',
+      ].join('\n');
     }
 
     const files = [];
 
     if (hasMock) {
-      // Render full cinematic video via serum-renderer
       const { renderSerumVideo } = await import('./serum-renderer.js');
       const outPath = `/tmp/serum-s1-final-${Date.now()}.mp4`;
-      const result = await renderSerumVideo({
-        produit: c.produit,
-        marque:  c.marque,
-        cible:   c.cible,
-      }, outPath);
+      const result = await renderSerumVideo({ produit: c.produit, marque: c.marque, cible: c.cible }, outPath);
       files.push(`serum-s1-final.mp4 → ${result.localPath}`);
       files.push(`Durée : ${result.durationSec}s | ${result.scenes} scènes | 1080×1920 | 30fps`);
     } else {
-      // Real API path: generate 3 clips from storyboard prompts
-      const api = c.apisContext.runway ? new RunwayAPI() : new StabilityAPI();
-      const storyLines = (c.storyboard ?? '').split('\n').filter(l => l.trim()).slice(0, 3);
-      for (let i = 0; i < Math.min(3, storyLines.length || 1); i++) {
-        const prompt = storyLines[i] ?? `${c.produit} — luxury cosmetic, golden light`;
-        const result = await api.textToVideo({ prompt, duration: 5, ratio: '9:16' });
-        files.push(`clip_${i + 1}.mp4 → ${result.url}`);
+      // Scene-aware routing: each shot type goes to its optimal API
+      const SCENE_MAP = [
+        { label: 'hook-arabesque',   type: 'packshot', prompt: `MBF Cosmetics Sérum S1, luxury gold arabesque, black background, extreme closeup, cinematic` },
+        { label: 'liquid-gold',      type: 'liquid',   prompt: `golden serum drop falling in slow motion, black background, 24k gold, macro lens, luxury cosmetic` },
+        { label: 'skin-texture',     type: 'slowmo',   prompt: `woman skin glowing transformation, moroccan beauty, golden hour light, slow motion, 4K ultra HD` },
+        { label: 'product-packshot', type: 'packshot', prompt: `MBF Cosmetics serum bottle, luxury packaging, black velvet background, gold light rays, photographic` },
+        { label: 'ritual-hands',     type: 'slowmo',   prompt: `elegant hands applying serum, moroccan woman, slow motion, golden light, luxury cosmetic ritual` },
+        { label: 'cta-finale',       type: 'loop',     prompt: `MBF COSMETICS logo reveal, gold on black, cinematic fade, luxury brand moment` },
+      ];
+
+      for (const scene of SCENE_MAP) {
+        const api = selectVideoAPI(apis, scene.type);
+        if (!api) continue;
+        try {
+          const result = await api.textToVideo({ prompt: scene.prompt, duration: 5, ratio: '9:16' });
+          files.push(`${scene.label}.mp4 → ${result.url ?? result.localPath}`);
+        } catch (err) {
+          files.push(`${scene.label}.mp4 → erreur: ${err.message.slice(0, 60)}`);
+        }
       }
     }
 
-    // Voice-over (silent WAV for mock, ElevenLabs for real)
-    const ttsApi = hasMock ? new MockVideoAPIs() : c.apisContext.elevenlabs ? new ElevenLabsAPI() : null;
-    if (ttsApi) {
-      const text = (c.narration ?? c.script ?? c.produit).slice(0, 500);
-      const audio = await ttsApi.textToSpeech({ text });
+    // Voice-over
+    if (hasMock) {
+      const mock = new MockVideoAPIs();
+      const text = (c.narration ?? c.script ?? c.produit).slice(0, 600);
+      const audio = await mock.textToSpeech({ text });
       files.push(`voiceover.wav → ${audio.localPath} (${audio.durationEstimateSec}s)`);
+    } else if (apis.elevenlabs) {
+      const tts = new ElevenLabsAPI();
+      const text = (c.narration ?? c.script ?? c.produit).slice(0, 600);
+      const audio = await tts.textToSpeech({ text, voicePreset: 'fr_female_luxury' });
+      files.push(`voiceover.mp3 → ${audio.localPath} (${audio.durationEstimateSec}s) — fr_female_luxury`);
     }
 
-    return `Assets générés [${hasMock ? 'cinématique' : 'réel'}] :\n${files.join('\n')}`;
+    const mode = hasMock ? 'cinématique (mock)' : `réel [${Object.entries(apis).filter(([k,v])=>v&&k!=='mock').map(([k])=>k).join('+')}]`;
+    return `Assets générés [${mode}] :\n${files.join('\n')}`;
   }
 
   _buildShotContext() {

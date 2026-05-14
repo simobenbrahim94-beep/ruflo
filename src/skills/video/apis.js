@@ -252,6 +252,45 @@ export class KlingAPI {
   }
 }
 
+// ── Pika Labs (product demo loops, packaging animations) ──────────────────────
+
+export class PikaAPI {
+  constructor(apiKey = process.env.PIKA_API_KEY) {
+    this.apiKey = apiKey;
+    this.baseUrl = 'https://api.pika.art/v1';
+  }
+
+  async textToVideo({ prompt, duration = 3, aspectRatio = '9:16', style = 'cinematic' }) {
+    this._requireKey('PIKA_API_KEY');
+    const res = await fetch(`${this.baseUrl}/generate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, options: { duration, aspectRatio, style } }),
+    });
+    if (!res.ok) throw new Error(`Pika error ${res.status}: ${await res.text()}`);
+    const { id } = await res.json();
+    return this._pollTask(id);
+  }
+
+  async _pollTask(taskId, maxWaitMs = 180_000) {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      await new Promise(r => setTimeout(r, 5000));
+      const res = await fetch(`${this.baseUrl}/jobs/${taskId}`, {
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+      });
+      const { status, videos } = await res.json();
+      if (status === 'finished') return { url: videos?.[0]?.url, taskId };
+      if (status === 'failed') throw new Error('Pika task failed');
+    }
+    throw new Error('Pika timeout');
+  }
+
+  _requireKey(name) {
+    if (!this.apiKey) throw new Error(`Missing env: ${name}`);
+  }
+}
+
 export function detectAvailableAPIs() {
   return {
     runway:     !!process.env.RUNWAY_API_KEY,
@@ -259,8 +298,27 @@ export function detectAvailableAPIs() {
     elevenlabs: !!process.env.ELEVENLABS_API_KEY,
     heygen:     !!process.env.HEYGEN_API_KEY,
     kling:      !!process.env.KLING_API_KEY,
+    pika:       !!process.env.PIKA_API_KEY,
     mock:       !!process.env.USE_MOCK_APIS,
   };
+}
+
+// Returns the best available video API for a given scene type.
+// Priority: real APIs > mock. Scene routing follows config/video-apis.env.example.
+export function selectVideoAPI(apis, sceneType = 'generic') {
+  const routes = {
+    liquid:     apis.runway    ? new RunwayAPI()    : null,
+    slowmo:     apis.kling     ? new KlingAPI()     : null,
+    packshot:   apis.stability ? new StabilityAPI() : null,
+    loop:       apis.pika      ? new PikaAPI()      : null,
+    avatar:     apis.heygen    ? new HeyGenAPI()    : null,
+    generic:    apis.runway    ? new RunwayAPI()
+              : apis.kling     ? new KlingAPI()
+              : apis.stability ? new StabilityAPI()
+              : apis.pika      ? new PikaAPI()
+              : null,
+  };
+  return routes[sceneType] ?? routes.generic ?? null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
