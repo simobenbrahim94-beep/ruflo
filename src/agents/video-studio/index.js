@@ -4,7 +4,11 @@
  */
 
 import { EventEmitter } from 'events';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import Anthropic from '@anthropic-ai/sdk';
+
+const execFileAsync = promisify(execFile);
 import {
   detectAvailableAPIs,
   ElevenLabsAPI,
@@ -180,6 +184,16 @@ export class VideoStudioDirector extends EventEmitter {
   }
 
   async _callAgent(agentId, userPrompt, useCreativeModel = false) {
+    // When running under Claude Code host auth (no ANTHROPIC_API_KEY), delegate to CLI.
+    if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST) {
+      const model = useCreativeModel ? MODEL_CREATIVE : MODEL;
+      const fullPrompt = `${AGENTS[agentId]}\n\n${userPrompt}`;
+      const { stdout } = await execFileAsync('claude', ['-p', '--model', model, fullPrompt], {
+        timeout: 120_000,
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      return stdout.trim();
+    }
     const response = await this.client.messages.create({
       model: useCreativeModel ? MODEL_CREATIVE : MODEL,
       max_tokens: 800,

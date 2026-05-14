@@ -1,5 +1,9 @@
 import { EventEmitter } from 'events';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import Anthropic from '@anthropic-ai/sdk';
+
+const execFileAsync = promisify(execFile);
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
@@ -142,21 +146,24 @@ export class MBFCoordinator extends EventEmitter {
     const userPrompt = typeof tache.prompt === 'function' ? tache.prompt(contexte) : tache.prompt;
 
     try {
-      const response = await this.client.messages.create({
-        model: MODEL,
-        max_tokens: 300,
-        system: [
-          {
-            type: 'text',
-            text: systemPrompt,
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
-        messages: [{ role: 'user', content: userPrompt }],
-      });
-
-      const sortie = response.content[0]?.text?.trim() ?? '';
-      const tokens = response.usage.input_tokens + response.usage.output_tokens;
+      let sortie, tokens;
+      if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST) {
+        const { stdout } = await execFileAsync('claude', ['-p', '--model', MODEL, `${systemPrompt}\n\n${userPrompt}`], {
+          timeout: 60_000,
+          maxBuffer: 2 * 1024 * 1024,
+        });
+        sortie = stdout.trim();
+        tokens = 0;
+      } else {
+        const response = await this.client.messages.create({
+          model: MODEL,
+          max_tokens: 300,
+          system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+          messages: [{ role: 'user', content: userPrompt }],
+        });
+        sortie = response.content[0]?.text?.trim() ?? '';
+        tokens = response.usage.input_tokens + response.usage.output_tokens;
+      }
 
       return {
         id: tache.id,
