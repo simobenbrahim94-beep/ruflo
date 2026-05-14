@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "pixa": {
+      "command": "npx",
+      "args": ["-y", "pixa-mcp@latest"],
+      "env": {
+        "PIXA_API_KEY": "${PIXA_API_KEY}"
+      }
+    },
     "flow-nexus": {
       "command": "node",
       "args": ["/workspaces/flow-cloud/mcp/flow-nexus-sse/mcp-server-supabase.js"],
