@@ -66,7 +66,7 @@ function dataNumber(num, y, { color = C.charcoal, size = 200, x = W / 2 } = {}) 
 
 function brandMark(y = H - 160, color = C.muted) {
   return `<text x="${W / 2}" y="${y}" font-family="Liberation Sans,Helvetica,Arial,sans-serif"
-    font-size="18" fill="${color}" text-anchor="middle" letter-spacing="9" opacity="0.55">ROUTINES.FR</text>`;
+    font-size="18" fill="${color}" text-anchor="middle" letter-spacing="9" opacity="0.55">ROUTINES</text>`;
 }
 
 function bgRect(color = C.white) {
@@ -267,11 +267,14 @@ function buildScenes(brief = {}) {
         ${thinLine(W * 0.38, H / 2 + 120, W * 0.62, H / 2 + 120, C.line, 0.25)}
         <text x="${W / 2}" y="${H / 2 + 185}"
           font-family="Liberation Sans,Helvetica,Arial,sans-serif" font-size="22"
-          fill="${C.muted}" text-anchor="middle" letter-spacing="8" opacity="0.65">ROUTINES.FR</text>
+          fill="${C.muted}" text-anchor="middle" letter-spacing="8" opacity="0.65">ROUTINES</text>
         <!-- Teaser bientôt — curiosity hook -->
-        <text x="${W / 2}" y="${H - 180}"
-          font-family="Liberation Serif,Georgia,serif" font-size="26"
-          fill="${C.accent}" text-anchor="middle" letter-spacing="4" opacity="0.7">Bientôt.</text>
+        <text x="${W / 2}" y="${H - 260}"
+          font-family="Liberation Serif,Georgia,serif" font-size="28"
+          fill="${C.accent}" text-anchor="middle" letter-spacing="2" opacity="0.8">Bientôt au Maroc</text>
+        <text x="${W / 2}" y="${H - 200}"
+          font-family="Liberation Sans,Helvetica,Arial,sans-serif" font-size="22"
+          fill="${C.muted}" text-anchor="middle" letter-spacing="3" opacity="0.65">chez MBF Cosmetics exclusivement</text>
       </svg>`,
     },
   ];
