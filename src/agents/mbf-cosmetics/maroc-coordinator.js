@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events';
 import Anthropic from '@anthropic-ai/sdk';
+import { buildEnrichedContext, analyzeOrchestrationOutputs } from '../../skills/index.js';
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
@@ -272,28 +273,46 @@ export class CoordinateurMarocain extends EventEmitter {
   constructor(options = {}) {
     super();
     this.nom = options.nom ?? 'Coordinateur Stratégique Marché Marocain';
-    this.version = '1.0.0';
+    this.version = '2.0.0';
     this.secteur = options.secteur ?? 'cosmétiques et soins beauté naturels';
     this.client = new Anthropic({ apiKey: options.apiKey ?? process.env.ANTHROPIC_API_KEY });
     this.horodatage = null;
+    this.skillsOptions = {
+      costPerUnitMAD: options.costPerUnitMAD ?? 35,
+      targetMarginPct: options.targetMarginPct ?? 65,
+      fixedCostsMAD: options.fixedCostsMAD ?? 200_000,
+      year1RevenueMAD: options.year1RevenueMAD ?? 3_000_000,
+      revenueGrowthPct: options.revenueGrowthPct ?? 35,
+    };
   }
 
   async orchestrer() {
     this.horodatage = new Date();
     this.emit('debut', { horodatage: this.horodatage, secteur: this.secteur });
 
-    const contexte = {};
+    // Phase 0 — fetch live data + pre-compute financial baseline
+    this.emit('skills-init', { status: 'fetching live market data...' });
+    const enriched = await buildEnrichedContext({ secteur: this.secteur, ...this.skillsOptions });
+    this.emit('skills-ready', { live: enriched.liveData.economics.live });
+
+    const contexte = {
+      _marketContext: enriched.marketContextStr,
+      _financialContext: enriched.financialStr,
+    };
     const resultats = [];
 
     for (const tache of TACHES) {
       this.emit('tache-debut', { id: tache.id, agent: tache.agent, label: tache.label });
 
-      const res = await this._executerTache(tache, contexte);
+      const res = await this._executerTache(tache, contexte, enriched);
       contexte[tache.id] = res.sortie;
       resultats.push(res);
 
       this.emit('tache-fin', { id: tache.id, succes: res.succes, tokens: res.tokens });
     }
+
+    // Phase N — post-analysis: sentiment scan on all outputs
+    const intelligence = analyzeOrchestrationOutputs(contexte);
 
     const succes = resultats.every(r => r.succes);
     this.emit('fin', { succes, nbTaches: resultats.length });
@@ -304,6 +323,8 @@ export class CoordinateurMarocain extends EventEmitter {
       secteur: this.secteur,
       succes,
       taches: resultats,
+      intelligence,
+      enriched: { pricing: enriched.pricing, sizing: enriched.sizing, projection: enriched.projection },
       metriques: this._calculerMetriques(resultats),
     };
   }
@@ -345,6 +366,30 @@ export class CoordinateurMarocain extends EventEmitter {
       lignes.push(``);
     }
 
+    if (resultat.enriched) {
+      const e = resultat.enriched;
+      lignes.push(`${sep2}`);
+      lignes.push(`  MODÈLE FINANCIER (SKILLS)`);
+      lignes.push(`${sep2}`);
+      if (e.pricing) lignes.push(`  Prix recommandé   : ${e.pricing.recommendedPrice} MAD | ${e.pricing.tier.label} | marge ${e.pricing.actualMarginPct}%`);
+      if (e.sizing) lignes.push(`  Marché SOM        : ${(e.sizing.som / 1e6).toFixed(1)}M MAD (~${(e.sizing.somUSD / 1e6).toFixed(1)}M USD)`);
+      if (e.projection) {
+        lignes.push(`  Projection 3 ans  :`);
+        for (const y of e.projection) {
+          lignes.push(`    An ${y.year} : CA ${(y.revenueMAD / 1e6).toFixed(1)}M MAD | EBITDA ${(y.ebitdaMAD / 1e6).toFixed(1)}M MAD (${y.ebitdaMarginPct}%)`);
+        }
+      }
+      lignes.push(``);
+    }
+
+    if (resultat.intelligence?.report) {
+      lignes.push(`${sep2}`);
+      lignes.push(`  INTELLIGENCE NLP (SKILLS)`);
+      lignes.push(`${sep2}`);
+      for (const l of resultat.intelligence.report.split('\n')) lignes.push(`  ${l}`);
+      lignes.push(``);
+    }
+
     lignes.push(`${sep2}`);
     lignes.push(`  MÉTRIQUES D'EXÉCUTION`);
     lignes.push(`${sep2}`);
@@ -356,10 +401,16 @@ export class CoordinateurMarocain extends EventEmitter {
     return lignes.join('\n');
   }
 
-  async _executerTache(tache, contexte) {
+  async _executerTache(tache, contexte, enriched) {
     const debut = Date.now();
     const systemPrompt = SYSTEM_PROMPTS[tache.agent];
-    const userPrompt = tache.prompt(contexte, { secteur: this.secteur });
+    const basePrompt = tache.prompt(contexte, { secteur: this.secteur });
+
+    // Prepend live market data + financial baseline to first two agents
+    const livePrefix = enriched
+      ? `\n\n--- DONNÉES RÉELLES INJECTÉES PAR LES SKILLS ---\n${enriched.marketContextStr}\n${enriched.financialStr}\n---\n\n`
+      : '';
+    const userPrompt = livePrefix + basePrompt;
 
     try {
       const response = await this.client.messages.create({
