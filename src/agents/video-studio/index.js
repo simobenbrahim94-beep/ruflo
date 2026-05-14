@@ -349,32 +349,39 @@ Produis le plan de production final exécutable :
       return 'Aucune API configurée — assets non générés. Définir USE_MOCK_APIS=1 ou les clés API réelles.';
     }
 
-    const api = hasMock
-      ? new MockVideoAPIs()
-      : c.apisContext.runway ? new RunwayAPI() : new StabilityAPI();
-    const ttsApi = hasMock
-      ? new MockVideoAPIs()
-      : c.apisContext.elevenlabs ? new ElevenLabsAPI() : null;
-
-    const mode = hasMock ? 'mock' : 'réel';
     const files = [];
 
-    // Generate 3 key frames from storyboard prompts
-    const storyLines = (c.storyboard ?? '').split('\n').filter(l => l.trim()).slice(0, 3);
-    for (let i = 0; i < Math.min(3, storyLines.length || 1); i++) {
-      const prompt = storyLines[i] ?? `${c.produit} — shot ${i + 1}, luxury cosmetic, golden light`;
-      const result = await api.textToVideo({ prompt, duration: 5, ratio: '9:16' });
-      files.push(`clip_${i + 1}.mp4 → ${result.localPath}`);
+    if (hasMock) {
+      // Render full cinematic video via serum-renderer
+      const { renderSerumVideo } = await import('./serum-renderer.js');
+      const outPath = `/tmp/serum-s1-final-${Date.now()}.mp4`;
+      const result = await renderSerumVideo({
+        produit: c.produit,
+        marque:  c.marque,
+        cible:   c.cible,
+      }, outPath);
+      files.push(`serum-s1-final.mp4 → ${result.localPath}`);
+      files.push(`Durée : ${result.durationSec}s | ${result.scenes} scènes | 1080×1920 | 30fps`);
+    } else {
+      // Real API path: generate 3 clips from storyboard prompts
+      const api = c.apisContext.runway ? new RunwayAPI() : new StabilityAPI();
+      const storyLines = (c.storyboard ?? '').split('\n').filter(l => l.trim()).slice(0, 3);
+      for (let i = 0; i < Math.min(3, storyLines.length || 1); i++) {
+        const prompt = storyLines[i] ?? `${c.produit} — luxury cosmetic, golden light`;
+        const result = await api.textToVideo({ prompt, duration: 5, ratio: '9:16' });
+        files.push(`clip_${i + 1}.mp4 → ${result.url}`);
+      }
     }
 
-    // Generate voice-over from narration
+    // Voice-over (silent WAV for mock, ElevenLabs for real)
+    const ttsApi = hasMock ? new MockVideoAPIs() : c.apisContext.elevenlabs ? new ElevenLabsAPI() : null;
     if (ttsApi) {
       const text = (c.narration ?? c.script ?? c.produit).slice(0, 500);
       const audio = await ttsApi.textToSpeech({ text });
-      files.push(`voiceover.mp3 → ${audio.localPath} (${audio.durationEstimateSec}s)`);
+      files.push(`voiceover.wav → ${audio.localPath} (${audio.durationEstimateSec}s)`);
     }
 
-    return `Assets générés [${mode}] :\n${files.join('\n')}`;
+    return `Assets générés [${hasMock ? 'cinématique' : 'réel'}] :\n${files.join('\n')}`;
   }
 
   _buildShotContext() {

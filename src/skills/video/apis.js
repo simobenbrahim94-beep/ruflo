@@ -282,6 +282,8 @@ function _silentWav(durationSec, sampleRate = 44100) {
 // ── MockVideoAPIs — zero-cost placeholder using sharp + ffmpeg ────────────────
 // Set USE_MOCK_APIS=1 to activate. Generates real image/video/audio files
 // locally so the full pipeline can be exercised without paid API accounts.
+// When brief context is provided via textToVideo({ brief }), renders the full
+// cinematic Sérum S1 video using serum-renderer.js.
 
 export class MockVideoAPIs {
   constructor() {
@@ -289,35 +291,32 @@ export class MockVideoAPIs {
   }
 
   async textToImage({ prompt, width = 1080, height = 1920 }) {
-    const path = join(tmpdir(), `mock-img-${Date.now()}.jpg`);
-    // Luxury gold background with subtle gradient via composite
-    await sharp({
-      create: { width, height, channels: 3, background: { r: 212, g: 175, b: 55 } },
-    })
-      .jpeg({ quality: 85 })
-      .toFile(path);
-    return { localPath: path, seed: 0, mock: true, prompt: prompt.slice(0, 80) };
-  }
-
-  async textToVideo({ prompt, duration = 5, ratio = '9:16' }) {
-    const [w, h] = ratio === '9:16' ? [1080, 1920] : [1920, 1080];
-    const { localPath: imgPath } = await this.textToImage({ prompt, width: w, height: h });
-    const videoPath = join(tmpdir(), `mock-video-${Date.now()}.mp4`);
+    const { renderSerumVideo } = await import('../../agents/video-studio/serum-renderer.js');
+    // Return a key frame from the renderer as a still image
+    const vid = await renderSerumVideo({}, null);
+    // Extract first frame as JPEG
+    const imgPath = vid.localPath.replace('.mp4', '-thumb.jpg');
     await new Promise((resolve, reject) => {
-      Ffmpeg()
-        .input(imgPath)
-        .inputOptions(['-loop 1'])
-        .outputOptions([`-t ${duration}`, '-c:v libx264', '-pix_fmt yuv420p', '-r 25', '-vf scale=' + w + ':' + h])
-        .output(videoPath)
+      Ffmpeg(vid.localPath)
+        .screenshots({ timestamps: ['00:00:02'], filename: imgPath, size: `${width}x${height}`, folder: '/' })
         .on('end', resolve)
-        .on('error', reject)
-        .run();
+        .on('error', () => {
+          // Fallback: gold gradient
+          sharp({ create: { width, height, channels: 3, background: { r: 18, g: 12, b: 6 } } })
+            .jpeg({ quality: 90 }).toFile(imgPath).then(resolve).catch(reject);
+        });
     });
-    return { url: `file://${videoPath}`, localPath: videoPath, mock: true };
+    return { localPath: imgPath, seed: 0, mock: true, prompt: prompt?.slice(0, 80) };
   }
 
-  async imageToVideo({ prompt = '', duration = 5, ratio = '9:16' }) {
-    return this.textToVideo({ prompt, duration, ratio });
+  async textToVideo({ prompt, duration = 70, ratio = '9:16', brief = {}, outputPath } = {}) {
+    const { renderSerumVideo } = await import('../../agents/video-studio/serum-renderer.js');
+    const result = await renderSerumVideo(brief, outputPath ?? null);
+    return { url: `file://${result.localPath}`, localPath: result.localPath, durationSec: result.durationSec, scenes: result.scenes, mock: true };
+  }
+
+  async imageToVideo({ prompt = '', duration = 70, ratio = '9:16', brief = {} } = {}) {
+    return this.textToVideo({ prompt, duration, ratio, brief });
   }
 
   async textToSpeech({ text, outputPath }) {
