@@ -37,6 +37,7 @@ import {
   RunwayAPI,
   StabilityAPI,
   KlingAPI,
+  MockVideoAPIs,
 } from '../../skills/video/apis.js';
 import {
   PLATFORMS,
@@ -176,6 +177,7 @@ export class VideoStudioDirector extends EventEmitter {
       { id: 'strategie-publi',   agent: 'strategiste-plateforme', fn: c => this._strategiePublication(c) },
       { id: 'tendances',         agent: 'analyste-tendances',     fn: c => this._analyserTendances(c) },
       { id: 'plan-production',   agent: 'directeur-production',   fn: c => this._planProduction(c) },
+      { id: 'render-assets',     agent: 'media-renderer',          fn: c => this._renderAssets(c) },
     ];
 
     for (const step of pipeline) {
@@ -192,7 +194,7 @@ export class VideoStudioDirector extends EventEmitter {
       }
     }
 
-    const succes = resultats.filter(r => r.succes).length >= 6;
+    const succes = resultats.filter(r => r.succes).length >= 7;
     this.emit('fin', { succes });
 
     return {
@@ -340,6 +342,41 @@ Produis le plan de production final exécutable :
 6. Plan de 3 variations pour A/B test plateforme`);
   }
 
+  async _renderAssets(c) {
+    const hasMock = c.apisContext.mock;
+    const hasReal = c.apisContext.runway || c.apisContext.stability || c.apisContext.elevenlabs;
+    if (!hasMock && !hasReal) {
+      return 'Aucune API configurée — assets non générés. Définir USE_MOCK_APIS=1 ou les clés API réelles.';
+    }
+
+    const api = hasMock
+      ? new MockVideoAPIs()
+      : c.apisContext.runway ? new RunwayAPI() : new StabilityAPI();
+    const ttsApi = hasMock
+      ? new MockVideoAPIs()
+      : c.apisContext.elevenlabs ? new ElevenLabsAPI() : null;
+
+    const mode = hasMock ? 'mock' : 'réel';
+    const files = [];
+
+    // Generate 3 key frames from storyboard prompts
+    const storyLines = (c.storyboard ?? '').split('\n').filter(l => l.trim()).slice(0, 3);
+    for (let i = 0; i < Math.min(3, storyLines.length || 1); i++) {
+      const prompt = storyLines[i] ?? `${c.produit} — shot ${i + 1}, luxury cosmetic, golden light`;
+      const result = await api.textToVideo({ prompt, duration: 5, ratio: '9:16' });
+      files.push(`clip_${i + 1}.mp4 → ${result.localPath}`);
+    }
+
+    // Generate voice-over from narration
+    if (ttsApi) {
+      const text = (c.narration ?? c.script ?? c.produit).slice(0, 500);
+      const audio = await ttsApi.textToSpeech({ text });
+      files.push(`voiceover.mp3 → ${audio.localPath} (${audio.durationEstimateSec}s)`);
+    }
+
+    return `Assets générés [${mode}] :\n${files.join('\n')}`;
+  }
+
   _buildShotContext() {
     return `RÉFÉRENCE SHOTS CINÉMATIQUES :
 Types de plans : ${Object.entries(SHOT_TYPES).slice(0, 5).map(([k, v]) => `${k}: ${v}`).join(' | ')}
@@ -360,6 +397,7 @@ Mouvements : ${Object.entries(CAMERA_MOVES).slice(0, 4).map(([k, v]) => `${k}: $
       publicationStrategy: ctx['strategie-publi'] ?? null,
       trendAnalysis: ctx.tendances ?? null,
       productionPlan: ctx['plan-production'] ?? null,
+      renderedFiles: ctx['render-assets'] ?? null,
     };
   }
 
@@ -410,9 +448,17 @@ Mouvements : ${Object.entries(CAMERA_MOVES).slice(0, 4).map(([k, v]) => `${k}: $
       resultat.assets.productionPlan.split('\n').forEach(l => lignes.push(`  ${l}`));
     }
 
-    lignes.push(``, `${sep2}`);
-    lignes.push(`  APIs vidéo disponibles : ${Object.entries(this.availableAPIs).filter(([,v])=>v).map(([k])=>k).join(', ') || 'aucune — configurer les clés API'}`);
-    lignes.push(`  Variables env requises  : RUNWAY_API_KEY, STABILITY_API_KEY, ELEVENLABS_API_KEY, KLING_API_KEY, HEYGEN_API_KEY`);
+    if (resultat.assets.renderedFiles) {
+      lignes.push(`${sep2}`);
+      lignes.push('  🎞  ASSETS GÉNÉRÉS');
+      lignes.push(`${sep2}`);
+      resultat.assets.renderedFiles.split('\n').forEach(l => lignes.push(`  ${l}`));
+      lignes.push('');
+    }
+
+    lignes.push(`${sep2}`);
+    lignes.push(`  APIs actives : ${Object.entries(this.availableAPIs).filter(([,v])=>v).map(([k])=>k).join(', ') || 'aucune'}`);
+    lignes.push(`  Activer mock : USE_MOCK_APIS=1   |   Réelles : RUNWAY_API_KEY, STABILITY_API_KEY, ELEVENLABS_API_KEY`);
     lignes.push('');
 
     return lignes.join('\n');

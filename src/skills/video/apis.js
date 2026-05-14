@@ -7,6 +7,9 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import ffmpegStatic from 'ffmpeg-static';
+import Ffmpeg from 'fluent-ffmpeg';
+import sharp from 'sharp';
 
 // ── Runway ML Gen-3 Alpha ────────────────────────────────────────────────────
 
@@ -251,10 +254,76 @@ export class KlingAPI {
 
 export function detectAvailableAPIs() {
   return {
-    runway:    !!process.env.RUNWAY_API_KEY,
-    stability: !!process.env.STABILITY_API_KEY,
+    runway:     !!process.env.RUNWAY_API_KEY,
+    stability:  !!process.env.STABILITY_API_KEY,
     elevenlabs: !!process.env.ELEVENLABS_API_KEY,
-    heygen:    !!process.env.HEYGEN_API_KEY,
-    kling:     !!process.env.KLING_API_KEY,
+    heygen:     !!process.env.HEYGEN_API_KEY,
+    kling:      !!process.env.KLING_API_KEY,
+    mock:       !!process.env.USE_MOCK_APIS,
   };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _silentWav(durationSec, sampleRate = 44100) {
+  const numSamples = Math.ceil(durationSec * sampleRate);
+  const dataSize = numSamples * 2; // 16-bit mono
+  const buf = Buffer.alloc(44 + dataSize, 0);
+  buf.write('RIFF', 0);             buf.writeUInt32LE(36 + dataSize, 4);
+  buf.write('WAVE', 8);             buf.write('fmt ', 12);
+  buf.writeUInt32LE(16, 16);        buf.writeUInt16LE(1, 20);  // PCM
+  buf.writeUInt16LE(1, 22);         buf.writeUInt32LE(sampleRate, 24);
+  buf.writeUInt32LE(sampleRate * 2, 28); buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);        buf.write('data', 36);
+  buf.writeUInt32LE(dataSize, 40);
+  return buf; // samples are all 0 = silence
+}
+
+// ── MockVideoAPIs — zero-cost placeholder using sharp + ffmpeg ────────────────
+// Set USE_MOCK_APIS=1 to activate. Generates real image/video/audio files
+// locally so the full pipeline can be exercised without paid API accounts.
+
+export class MockVideoAPIs {
+  constructor() {
+    Ffmpeg.setFfmpegPath(ffmpegStatic);
+  }
+
+  async textToImage({ prompt, width = 1080, height = 1920 }) {
+    const path = join(tmpdir(), `mock-img-${Date.now()}.jpg`);
+    // Luxury gold background with subtle gradient via composite
+    await sharp({
+      create: { width, height, channels: 3, background: { r: 212, g: 175, b: 55 } },
+    })
+      .jpeg({ quality: 85 })
+      .toFile(path);
+    return { localPath: path, seed: 0, mock: true, prompt: prompt.slice(0, 80) };
+  }
+
+  async textToVideo({ prompt, duration = 5, ratio = '9:16' }) {
+    const [w, h] = ratio === '9:16' ? [1080, 1920] : [1920, 1080];
+    const { localPath: imgPath } = await this.textToImage({ prompt, width: w, height: h });
+    const videoPath = join(tmpdir(), `mock-video-${Date.now()}.mp4`);
+    await new Promise((resolve, reject) => {
+      Ffmpeg()
+        .input(imgPath)
+        .inputOptions(['-loop 1'])
+        .outputOptions([`-t ${duration}`, '-c:v libx264', '-pix_fmt yuv420p', '-r 25', '-vf scale=' + w + ':' + h])
+        .output(videoPath)
+        .on('end', resolve)
+        .on('error', reject)
+        .run();
+    });
+    return { url: `file://${videoPath}`, localPath: videoPath, mock: true };
+  }
+
+  async imageToVideo({ prompt = '', duration = 5, ratio = '9:16' }) {
+    return this.textToVideo({ prompt, duration, ratio });
+  }
+
+  async textToSpeech({ text, outputPath }) {
+    const path = outputPath ?? join(tmpdir(), `mock-audio-${Date.now()}.wav`);
+    const durationSec = Math.max(2, Math.ceil(text.length / 15));
+    await writeFile(path, _silentWav(durationSec));
+    return { localPath: path, durationEstimateSec: durationSec, mock: true };
+  }
 }
