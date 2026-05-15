@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; connect-src https://api.elevenlabs.io https://api.anthropic.com; media-src blob: 'self';" />
+  <title>J.A.R.V.I.S.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top HUD bar -->
+  <header id="hud-bar">
+    <div class="hud-left">
+      <span class="hud-label">J.A.R.V.I.S.</span>
+      <span class="hud-version">v1.0 — OPÉRATIONNEL</span>
+    </div>
+    <div class="hud-center">
+      <span id="status-text" class="status-text">EN ATTENTE</span>
+    </div>
+    <div class="hud-right">
+      <span id="clock" class="hud-clock">--:--:--</span>
+      <button id="settings-btn" title="Paramètres (⌘,)">⚙</button>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <main id="app-main">
+
+    <!-- Left: Conversation panel -->
+    <aside id="conversation-panel">
+      <div class="panel-header">
+        <span>JOURNAL DE COMMUNICATION</span>
+        <button id="clear-btn" title="Effacer">✕</button>
+      </div>
+      <div id="conversation-list"></div>
+    </aside>
+
+    <!-- Center: Arc reactor + controls -->
+    <section id="center-panel">
+      <div id="arc-reactor" class="state-idle">
+        <svg id="reactor-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+              <stop offset="40%" stop-color="#00d4ff" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#0040cc" stop-opacity="0.3"/>
+            </radialGradient>
+            <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="blur-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="strong-glow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Outer ambient glow -->
+          <circle cx="150" cy="150" r="148" fill="url(#glowGrad)" class="ambient-glow"/>
+
+          <!-- Outer ring -->
+          <circle cx="150" cy="150" r="138" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.2" stroke-dasharray="4 8" class="ring ring-outer"/>
+
+          <!-- Ring 1 – slow clockwise -->
+          <g class="ring ring-1" filter="url(#blur-glow)">
+            <circle cx="150" cy="150" r="118" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.6" stroke-dasharray="45 25"/>
+          </g>
+
+          <!-- Ring 2 – medium counter -->
+          <g class="ring ring-2" filter="url(#blur-glow)">
+            <circle cx="150" cy="150" r="88" fill="none" stroke="currentColor" stroke-width="3" stroke-opacity="0.8" stroke-dasharray="30 12"/>
+          </g>
+
+          <!-- 6 radial segments -->
+          <g class="segments" filter="url(#blur-glow)">
+            <rect x="146" y="62" width="8" height="36" rx="3" fill="currentColor" opacity="0.85" transform="rotate(0, 150, 150)"/>
+            <rect x="146" y="62" width="8" height="36" rx="3" fill="currentColor" opacity="0.85" transform="rotate(60, 150, 150)"/>
+            <rect x="146" y="62" width="8" height="36" rx="3" fill="currentColor" opacity="0.85" transform="rotate(120, 150, 150)"/>
+            <rect x="146" y="62" width="8" height="36" rx="3" fill="currentColor" opacity="0.85" transform="rotate(180, 150, 150)"/>
+            <rect x="146" y="62" width="8" height="36" rx="3" fill="currentColor" opacity="0.85" transform="rotate(240, 150, 150)"/>
+            <rect x="146" y="62" width="8" height="36" rx="3" fill="currentColor" opacity="0.85" transform="rotate(300, 150, 150)"/>
+          </g>
+
+          <!-- Inner ring – fast clockwise -->
+          <g class="ring ring-3" filter="url(#blur-glow)">
+            <circle cx="150" cy="150" r="52" fill="none" stroke="currentColor" stroke-width="2" stroke-opacity="0.9" stroke-dasharray="18 8"/>
+          </g>
+
+          <!-- Core -->
+          <circle cx="150" cy="150" r="36" fill="url(#coreGrad)" class="core-bg" filter="url(#strong-glow)"/>
+          <circle cx="150" cy="150" r="22" fill="currentColor" opacity="0.4" class="core-mid"/>
+          <circle cx="150" cy="150" r="12" fill="#ffffff" opacity="0.95" class="core-center" filter="url(#strong-glow)"/>
+        </svg>
+
+        <!-- State label inside reactor -->
+        <div id="reactor-label">STANDBY</div>
+      </div>
+
+      <!-- Transcript display -->
+      <div id="transcript-display"></div>
+
+      <!-- Main mic button -->
+      <div id="controls">
+        <button id="mic-button" title="Parler (Espace)">
+          <span class="mic-icon">🎤</span>
+          <span class="mic-text">PARLER</span>
+          <span class="mic-hint">appuyer ou [ESPACE]</span>
+        </button>
+      </div>
+
+      <!-- Text input fallback -->
+      <div id="text-input-bar">
+        <input type="text" id="text-input" placeholder="Ou tapez votre message…" autocomplete="off" spellcheck="false"/>
+        <button id="send-btn">→</button>
+      </div>
+    </section>
+
+    <!-- Right: System info panel -->
+    <aside id="info-panel">
+      <div class="panel-header"><span>JOURNAUX SYSTÈME</span></div>
+      <div class="info-section">
+        <div class="info-label">MODÈLE IA</div>
+        <div class="info-value" id="info-model">—</div>
+      </div>
+      <div class="info-section">
+        <div class="info-label">VOIX</div>
+        <div class="info-value" id="info-voice">ElevenLabs</div>
+      </div>
+      <div class="info-section">
+        <div class="info-label">LANGUE</div>
+        <div class="info-value" id="info-lang">—</div>
+      </div>
+      <div class="panel-header" style="margin-top:20px"><span>COMMANDES RÉCENTES</span></div>
+      <div id="command-log"></div>
+    </aside>
+  </main>
+
+  <!-- Settings modal -->
+  <div id="settings-overlay" class="hidden">
+    <div id="settings-modal">
+      <div class="modal-header">
+        <h2>CONFIGURATION J.A.R.V.I.S.</h2>
+        <button id="settings-close">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label>Clé API Anthropic</label>
+        <input type="password" id="cfg-anthropic-key" placeholder="sk-ant-api03-…"/>
+        <a href="https://console.anthropic.com/settings/keys" class="link-hint">Obtenir une clé →</a>
+      </div>
+
+      <div class="form-group">
+        <label>Clé API ElevenLabs</label>
+        <input type="password" id="cfg-elevenlabs-key" placeholder="…"/>
+        <a href="https://elevenlabs.io/app/settings/api-keys" class="link-hint">Obtenir une clé →</a>
+      </div>
+
+      <div class="form-group">
+        <label>Voice ID ElevenLabs</label>
+        <input type="text" id="cfg-voice-id" placeholder="onwK4e9ZLuTAKqWW03F9"/>
+        <span class="hint">Défaut: Daniel (voix anglaise profonde). Cherchez sur ElevenLabs Voice Library.</span>
+      </div>
+
+      <div class="form-group">
+        <label>Modèle Claude</label>
+        <select id="cfg-model">
+          <option value="claude-opus-4-7">claude-opus-4-7 (Plus puissant)</option>
+          <option value="claude-sonnet-4-6">claude-sonnet-4-6 (Plus rapide)</option>
+          <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (Ultra rapide)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Langue de reconnaissance vocale</label>
+        <select id="cfg-speech-lang">
+          <option value="fr-FR">Français (FR)</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (GB)</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button id="cfg-save" class="btn-primary">SAUVEGARDER</button>
+        <button id="cfg-cancel" class="btn-secondary">ANNULER</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
