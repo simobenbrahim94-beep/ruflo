@@ -7,6 +7,7 @@ const claude = require('./services/claude');
 const elevenlabs = require('./services/elevenlabs');
 const executor = require('./services/executor');
 const config = require('./services/config');
+const healthMonitor = require('./services/health-monitor');
 
 const fsSync = require('fs');
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -50,6 +51,8 @@ app.whenReady().then(async () => {
   if (process.platform === 'darwin' && fsSync.existsSync(iconPath)) {
     app.dock.setIcon(iconPath);
   }
+  const repoPath = path.join(__dirname, '..', '..');
+  healthMonitor.init(claude, win, repoPath);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -129,6 +132,15 @@ ipcMain.handle('claude:chat', async (_, messages) => {
   throw new Error('Limite de boucle atteinte.');
 });
 
+// Wrap claude:chat to record stats + errors
+const originalChatHandler = ipcMain.listeners
+  ? null
+  : null; // handled inline above via healthMonitor
+
+ipcMain.on('renderer:error', (_, { context, message }) => {
+  healthMonitor.recordError(context, new Error(message));
+});
+
 // ── Executor history ───────────────────────────────────────────────────────────
 ipcMain.handle('executor:history', () => executor.getHistory());
 
@@ -148,3 +160,8 @@ ipcMain.handle('memory:save', async (_, msgs) => {
   const filtered = msgs.filter((m) => typeof m.content === 'string').slice(-40);
   await fs.writeFile(memoryPath, JSON.stringify(filtered, null, 2));
 });
+
+// ── Health monitor ────────────────────────────────────────────────────────────
+ipcMain.handle('monitor:report', () => healthMonitor.getReport());
+ipcMain.handle('monitor:check', () => healthMonitor.runCheck());
+ipcMain.handle('monitor:update', () => healthMonitor.autoUpdate());

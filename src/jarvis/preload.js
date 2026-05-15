@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld('jarvis', {
   loadMemory: () => ipcRenderer.invoke('memory:load'),
   saveMemory: (msgs) => ipcRenderer.invoke('memory:save', msgs),
   onCommandExecuted: (cb) => ipcRenderer.on('command:executed', (_, data) => cb(data)),
+  // Health monitor
+  getReport: () => ipcRenderer.invoke('monitor:report'),
+  runCheck: () => ipcRenderer.invoke('monitor:check'),
+  autoUpdate: () => ipcRenderer.invoke('monitor:update'),
+  reportError: (context, message) => ipcRenderer.send('renderer:error', { context, message }),
+  onMonitor: (event, cb) => ipcRenderer.on(`monitor:${event}`, (_, data) => cb(data)),
 });

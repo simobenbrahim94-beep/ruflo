@@ -25,6 +25,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     appendCommandLog(command, result);
   });
 
+  // ── Health monitor events ─────────────────────────────────────────────────
+  window.jarvis.onMonitor('health-check', ({ stats }) => {
+    const el = document.getElementById('info-memory');
+    if (el) el.textContent = `${stats.requests} req · ${stats.errors} err · ${stats.uptime}`;
+  });
+
+  window.jarvis.onMonitor('diagnosis', ({ text, errorCount }) => {
+    appendMessage('assistant', `[DIAGNOSTIC — ${errorCount} erreur(s) détectée(s)]\n${text}`);
+    if (config.elevenLabsKey) speakText(`Diagnostic système: ${text.slice(0, 200)}`);
+  });
+
+  window.jarvis.onMonitor('auto-updated', ({ message }) => {
+    appendMessage('assistant', `[MISE À JOUR] ${message}`);
+  });
+
+  // Global error capture → send to monitor
+  window.addEventListener('unhandledrejection', (e) => {
+    window.jarvis.reportError('renderer:unhandledRejection', e.reason?.message || String(e.reason));
+  });
+  window.addEventListener('error', (e) => {
+    window.jarvis.reportError('renderer:error', e.message);
+  });
+
   if (!config.anthropicKey || !config.elevenLabsKey) {
     openSettings();
   } else {
@@ -235,6 +258,7 @@ async function handleInput(text, silent = false) {
     appendMessage('error', msg);
     setStatus('ERREUR', 'error');
     setReactorState('error', 'ERREUR');
+    window.jarvis.reportError('claude:chat', msg);
     setTimeout(reset, 4000);
   } finally {
     isProcessing = false;
