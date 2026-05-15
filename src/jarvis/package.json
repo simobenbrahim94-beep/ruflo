@@ -4,6 +4,7 @@
   "description": "Interface vocale J.A.R.V.I.S. alimentée par Claude AI et ElevenLabs",
   "main": "main.js",
   "scripts": {
+    "postinstall": "node scripts/generate-icon.js",
     "start": "electron .",
     "dev": "ELECTRON_ENABLE_LOGGING=1 electron .",
     "build": "electron-builder --mac dmg"
@@ -22,6 +23,7 @@
     "mac": {
       "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
       "category": "public.app-category.productivity",
+      "icon": "assets/icon.png",
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist"
     }

@@ -8,6 +8,9 @@ const elevenlabs = require('./services/elevenlabs');
 const executor = require('./services/executor');
 const config = require('./services/config');
 
+const fsSync = require('fs');
+const iconPath = path.join(__dirname, 'assets', 'icon.png');
+
 let win;
 let memoryPath;
 
@@ -21,6 +24,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     vibrancy: 'dark',
+    icon: fsSync.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -43,6 +47,9 @@ app.whenReady().then(async () => {
   if (cfg.anthropicKey) claude.init(cfg.anthropicKey, cfg.model);
   if (cfg.elevenLabsKey) elevenlabs.init(cfg.elevenLabsKey, cfg.voiceId);
   createWindow();
+  if (process.platform === 'darwin' && fsSync.existsSync(iconPath)) {
+    app.dock.setIcon(iconPath);
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
