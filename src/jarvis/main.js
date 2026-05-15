@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
+const fs = require('fs').promises;
 
 const claude = require('./services/claude');
 const elevenlabs = require('./services/elevenlabs');
@@ -8,6 +9,7 @@ const executor = require('./services/executor');
 const config = require('./services/config');
 
 let win;
+let memoryPath;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -35,7 +37,9 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  const cfg = await config.init(app.getPath('userData'));
+  const userDataPath = app.getPath('userData');
+  const cfg = await config.init(userDataPath);
+  memoryPath = path.join(userDataPath, 'jarvis-memory.json');
   if (cfg.anthropicKey) claude.init(cfg.anthropicKey, cfg.model);
   if (cfg.elevenLabsKey) elevenlabs.init(cfg.elevenLabsKey, cfg.voiceId);
   createWindow();
@@ -120,3 +124,20 @@ ipcMain.handle('claude:chat', async (_, messages) => {
 
 // ── Executor history ───────────────────────────────────────────────────────────
 ipcMain.handle('executor:history', () => executor.getHistory());
+
+// ── Memory persistence ────────────────────────────────────────────────────────
+ipcMain.handle('memory:load', async () => {
+  if (!memoryPath) return [];
+  try {
+    const data = await fs.readFile(memoryPath, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('memory:save', async (_, msgs) => {
+  if (!memoryPath) return;
+  const filtered = msgs.filter((m) => typeof m.content === 'string').slice(-40);
+  await fs.writeFile(memoryPath, JSON.stringify(filtered, null, 2));
+});

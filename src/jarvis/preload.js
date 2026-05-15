@@ -7,5 +7,7 @@ contextBridge.exposeInMainWorld('jarvis', {
   getConfig: () => ipcRenderer.invoke('config:get'),
   setConfig: (cfg) => ipcRenderer.invoke('config:set', cfg),
   getHistory: () => ipcRenderer.invoke('executor:history'),
+  loadMemory: () => ipcRenderer.invoke('memory:load'),
+  saveMemory: (msgs) => ipcRenderer.invoke('memory:save', msgs),
   onCommandExecuted: (cb) => ipcRenderer.on('command:executed', (_, data) => cb(data)),
 });
