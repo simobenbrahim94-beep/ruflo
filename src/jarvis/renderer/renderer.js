@@ -418,11 +418,13 @@ function refreshInfoPanel() {
 // ── Settings modal ────────────────────────────────────────────────────────────
 async function openSettings() {
   const cfg = await window.jarvis.getConfig();
-  document.getElementById('cfg-anthropic-key').value = cfg.anthropicKey || '';
+  document.getElementById('cfg-anthropic-key').value  = cfg.anthropicKey  || '';
   document.getElementById('cfg-elevenlabs-key').value = cfg.elevenLabsKey || '';
-  document.getElementById('cfg-voice-id').value = cfg.voiceId || 'onwK4e9ZLuTAKqWW03F9';
-  document.getElementById('cfg-model').value = cfg.model || 'claude-opus-4-7';
-  document.getElementById('cfg-speech-lang').value = cfg.speechLang || 'fr-FR';
+  document.getElementById('cfg-replicate-key').value  = cfg.replicateKey  || '';
+  document.getElementById('cfg-stability-key').value  = cfg.stabilityKey  || '';
+  document.getElementById('cfg-voice-id').value       = cfg.voiceId       || 'onwK4e9ZLuTAKqWW03F9';
+  document.getElementById('cfg-model').value          = cfg.model         || 'claude-opus-4-7';
+  document.getElementById('cfg-speech-lang').value    = cfg.speechLang    || 'fr-FR';
   document.getElementById('settings-overlay').classList.remove('hidden');
 }
 
@@ -434,6 +436,8 @@ async function saveSettings() {
   const newCfg = {
     anthropicKey:  document.getElementById('cfg-anthropic-key').value.trim(),
     elevenLabsKey: document.getElementById('cfg-elevenlabs-key').value.trim(),
+    replicateKey:  document.getElementById('cfg-replicate-key').value.trim(),
+    stabilityKey:  document.getElementById('cfg-stability-key').value.trim(),
     voiceId:       document.getElementById('cfg-voice-id').value.trim() || 'onwK4e9ZLuTAKqWW03F9',
     model:         document.getElementById('cfg-model').value,
     speechLang:    document.getElementById('cfg-speech-lang').value,

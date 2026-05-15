@@ -2,12 +2,14 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const DEFAULTS = {
-  anthropicKey: '',
+  anthropicKey:  '',
   elevenLabsKey: '',
-  voiceId: 'onwK4e9ZLuTAKqWW03F9',
-  speechLang: 'fr-FR',
-  model: 'claude-opus-4-7',
-  userName: 'Patron',
+  replicateKey:  '',
+  stabilityKey:  '',
+  voiceId:       'onwK4e9ZLuTAKqWW03F9',
+  speechLang:    'fr-FR',
+  model:         'claude-opus-4-7',
+  userName:      'Patron',
 };
 
 let configPath;

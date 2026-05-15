@@ -157,6 +157,56 @@ const TOOLS = [
       required: [],
     },
   },
+  // ── Visual & Video Production ──────────────────────────────────────────────
+  {
+    name: 'generate_image',
+    description: 'Génère une image IA professionnelle (photorealistic, cinematic, corporate, luxury, social_media, product, futuristic)',
+    input_schema: {
+      type: 'object',
+      properties: {
+        prompt:       { type: 'string', description: 'Description détaillée du visuel à créer' },
+        style:        { type: 'string', enum: ['photorealistic', 'cinematic', 'corporate', 'luxury', 'social_media', 'product', 'futuristic'], description: 'Style visuel' },
+        aspect_ratio: { type: 'string', enum: ['16:9', '1:1', '9:16', '4:3', '3:4'], description: 'Format (16:9=bannière, 1:1=Instagram, 9:16=Story)' },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'generate_promo_video',
+    description: 'Génère une courte vidéo promotionnelle IA (nécessite clé Replicate)',
+    input_schema: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: 'Description de la scène vidéo à créer' },
+        style:  { type: 'string', enum: ['cinematic', 'corporate', 'luxury', 'futuristic', 'social_media'], description: 'Style vidéo' },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'create_promo_package',
+    description: 'Crée un package complet de visuels promotionnels en 3 formats (web 16:9, Instagram 1:1, Story 9:16)',
+    input_schema: {
+      type: 'object',
+      properties: {
+        brand: { type: 'string', description: 'Nom de la marque ou entreprise' },
+        topic: { type: 'string', description: 'Sujet ou message de la campagne' },
+        style: { type: 'string', enum: ['corporate', 'luxury', 'social_media', 'product', 'cinematic', 'futuristic'], description: 'Style visuel de la campagne' },
+      },
+      required: ['brand', 'topic'],
+    },
+  },
+  {
+    name: 'list_visuals',
+    description: 'Liste les derniers visuels et vidéos générés par JARVIS',
+    input_schema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Nombre de fichiers à afficher (défaut: 10)' },
+      },
+      required: [],
+    },
+  },
   // ── Continuous Learning ────────────────────────────────────────────────────
   {
     name: 'wikipedia_search',

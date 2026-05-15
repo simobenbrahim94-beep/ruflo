@@ -9,7 +9,8 @@ const executor = require('./services/executor');
 const config = require('./services/config');
 const healthMonitor = require('./services/health-monitor');
 const integrations = require('./services/integrations');
-const learner = require('./services/learner');
+const learner  = require('./services/learner');
+const visuals  = require('./services/visuals');
 
 const fsSync = require('fs');
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -48,6 +49,7 @@ app.whenReady().then(async () => {
   const cfg = await config.init(userDataPath);
   memoryPath = path.join(userDataPath, 'jarvis-memory.json');
   learner.init(userDataPath);
+  visuals.init(cfg);
   if (cfg.anthropicKey) claude.init(cfg.anthropicKey, cfg.model);
   if (cfg.elevenLabsKey) elevenlabs.init(cfg.elevenLabsKey, cfg.voiceId);
   createWindow();
@@ -70,8 +72,9 @@ ipcMain.handle('config:get', () => config.get());
 
 ipcMain.handle('config:set', async (_, cfg) => {
   await config.set(cfg);
-  if (cfg.anthropicKey) claude.init(cfg.anthropicKey, cfg.model);
+  if (cfg.anthropicKey)  claude.init(cfg.anthropicKey, cfg.model);
   if (cfg.elevenLabsKey) elevenlabs.init(cfg.elevenLabsKey, cfg.voiceId);
+  visuals.init(cfg);
   return { success: true };
 });
 
@@ -138,6 +141,14 @@ ipcMain.handle('claude:chat', async (_, messages) => {
         result = await integrations.getNews(inp.topic || 'monde');
       } else if (block.name === 'get_reminders') {
         result = await integrations.getReminders();
+      } else if (block.name === 'generate_image') {
+        result = await visuals.generateImage(inp.prompt, inp.style || 'photorealistic', inp.aspect_ratio || '16:9');
+      } else if (block.name === 'generate_promo_video') {
+        result = await visuals.generateVideo(inp.prompt, inp.style || 'cinematic');
+      } else if (block.name === 'create_promo_package') {
+        result = await visuals.createPromoPackage(inp.brand, inp.topic, inp.style || 'corporate');
+      } else if (block.name === 'list_visuals') {
+        result = visuals.listGeneratedFiles(inp.limit || 10);
       } else if (block.name === 'wikipedia_search') {
         result = await learner.searchWikipedia(inp.query, inp.lang || 'fr');
       } else if (block.name === 'install_npm_package') {
