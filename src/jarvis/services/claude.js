@@ -59,6 +59,104 @@ const TOOLS = [
       required: ['info_type'],
     },
   },
+  // ── Web & real-world integrations ──────────────────────────────────────────
+  {
+    name: 'search_web',
+    description: 'Recherche sur internet (DuckDuckGo) pour répondre à une question en temps réel',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'La requête de recherche' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_weather',
+    description: 'Obtient la météo actuelle pour une ville',
+    input_schema: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'Ville ou lieu (ex: Paris, Lyon, New York)' },
+      },
+      required: ['location'],
+    },
+  },
+  {
+    name: 'get_financial_data',
+    description: 'Obtient le cours d\'une action ou d\'une crypto en temps réel (Yahoo Finance)',
+    input_schema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Symbole boursier (ex: AAPL, TSLA, BTC-EUR, CAC=F)' },
+      },
+      required: ['symbol'],
+    },
+  },
+  {
+    name: 'get_emails',
+    description: 'Lit les emails non lus depuis Apple Mail',
+    input_schema: {
+      type: 'object',
+      properties: {
+        count: { type: 'number', description: 'Nombre maximum d\'emails à lire (défaut: 5)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'send_email',
+    description: 'Envoie un email via Apple Mail',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to: { type: 'string', description: 'Adresse email du destinataire' },
+        subject: { type: 'string', description: 'Sujet de l\'email' },
+        body: { type: 'string', description: 'Corps du message' },
+      },
+      required: ['to', 'subject', 'body'],
+    },
+  },
+  {
+    name: 'control_chrome',
+    description: 'Contrôle Google Chrome: ouvrir une URL, faire une recherche, lire l\'onglet actif',
+    input_schema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['open_url', 'search', 'get_current_tab'],
+          description: 'Action à effectuer dans Chrome',
+        },
+        value: { type: 'string', description: 'URL à ouvrir ou termes de recherche' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'get_news',
+    description: 'Obtient les dernières actualités (monde, finance, tech, france)',
+    input_schema: {
+      type: 'object',
+      properties: {
+        topic: {
+          type: 'string',
+          enum: ['monde', 'finance', 'tech', 'france', 'bbc'],
+          description: 'Catégorie d\'actualités',
+        },
+      },
+      required: ['topic'],
+    },
+  },
+  {
+    name: 'get_reminders',
+    description: 'Lit les rappels actifs depuis l\'app Rappels macOS',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 class ClaudeService {

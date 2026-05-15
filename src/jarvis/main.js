@@ -8,6 +8,7 @@ const elevenlabs = require('./services/elevenlabs');
 const executor = require('./services/executor');
 const config = require('./services/config');
 const healthMonitor = require('./services/health-monitor');
+const integrations = require('./services/integrations');
 
 const fsSync = require('fs');
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -115,6 +116,26 @@ ipcMain.handle('claude:chat', async (_, messages) => {
       } else if (block.name === 'get_system_info') {
         const r = await executor.getSystemInfo(inp.info_type);
         result = r.output;
+      } else if (block.name === 'search_web') {
+        result = await integrations.searchWeb(inp.query);
+      } else if (block.name === 'get_weather') {
+        result = await integrations.getWeather(inp.location);
+      } else if (block.name === 'get_financial_data') {
+        result = await integrations.getFinancialData(inp.symbol);
+      } else if (block.name === 'get_emails') {
+        result = await integrations.getEmails(inp.count || 5);
+      } else if (block.name === 'send_email') {
+        result = await integrations.sendEmail(inp.to, inp.subject, inp.body);
+        win.webContents.send('command:executed', { command: `send_email → ${inp.to}`, result: { success: true, output: result } });
+      } else if (block.name === 'control_chrome') {
+        if (inp.action === 'open_url') result = await integrations.openInChrome(inp.value);
+        else if (inp.action === 'search') result = await integrations.searchInChrome(inp.value);
+        else if (inp.action === 'get_current_tab') result = await integrations.getChromeTab();
+        else result = 'Action Chrome inconnue.';
+      } else if (block.name === 'get_news') {
+        result = await integrations.getNews(inp.topic || 'monde');
+      } else if (block.name === 'get_reminders') {
+        result = await integrations.getReminders();
       } else {
         result = `Outil inconnu: ${block.name}`;
       }
