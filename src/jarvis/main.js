@@ -9,6 +9,7 @@ const executor = require('./services/executor');
 const config = require('./services/config');
 const healthMonitor = require('./services/health-monitor');
 const integrations = require('./services/integrations');
+const learner = require('./services/learner');
 
 const fsSync = require('fs');
 const iconPath = path.join(__dirname, 'assets', 'icon.png');
@@ -46,6 +47,7 @@ app.whenReady().then(async () => {
   const userDataPath = app.getPath('userData');
   const cfg = await config.init(userDataPath);
   memoryPath = path.join(userDataPath, 'jarvis-memory.json');
+  learner.init(userDataPath);
   if (cfg.anthropicKey) claude.init(cfg.anthropicKey, cfg.model);
   if (cfg.elevenLabsKey) elevenlabs.init(cfg.elevenLabsKey, cfg.voiceId);
   createWindow();
@@ -136,6 +138,23 @@ ipcMain.handle('claude:chat', async (_, messages) => {
         result = await integrations.getNews(inp.topic || 'monde');
       } else if (block.name === 'get_reminders') {
         result = await integrations.getReminders();
+      } else if (block.name === 'wikipedia_search') {
+        result = await learner.searchWikipedia(inp.query, inp.lang || 'fr');
+      } else if (block.name === 'install_npm_package') {
+        const jarvisDir = path.join(__dirname);
+        result = await learner.installPackage(inp.package_name, jarvisDir);
+      } else if (block.name === 'update_dependencies') {
+        const jarvisDir = path.join(__dirname);
+        result = inp.check_only
+          ? await learner.checkDependencyUpdates(jarvisDir)
+          : await learner.updateDependencies(jarvisDir);
+      } else if (block.name === 'compute_math') {
+        result = await learner.compute(inp.expression);
+      } else if (block.name === 'recall_knowledge') {
+        const val = learner.recall(inp.key);
+        result = val ? `${inp.key}: ${val}` : `Aucune connaissance mémorisée pour "${inp.key}".`;
+      } else if (block.name === 'list_knowledge') {
+        result = learner.listKnowledge(inp.limit || 10);
       } else {
         result = `Outil inconnu: ${block.name}`;
       }

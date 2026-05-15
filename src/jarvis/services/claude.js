@@ -157,6 +157,74 @@ const TOOLS = [
       required: [],
     },
   },
+  // ── Continuous Learning ────────────────────────────────────────────────────
+  {
+    name: 'wikipedia_search',
+    description: 'Recherche et mémorise un article Wikipedia sur n\'importe quel sujet',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Sujet ou terme à rechercher' },
+        lang: { type: 'string', description: 'Langue (fr ou en)', enum: ['fr', 'en'] },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'install_npm_package',
+    description: 'Installe un package npm pour étendre les capacités de JARVIS',
+    input_schema: {
+      type: 'object',
+      properties: {
+        package_name: { type: 'string', description: 'Nom du package npm à installer (ex: axios, lodash)' },
+      },
+      required: ['package_name'],
+    },
+  },
+  {
+    name: 'update_dependencies',
+    description: 'Vérifie et met à jour toutes les dépendances npm de JARVIS',
+    input_schema: {
+      type: 'object',
+      properties: {
+        check_only: { type: 'boolean', description: 'Si true, affiche seulement les mises à jour disponibles sans les installer' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'compute_math',
+    description: 'Calcule une expression mathématique ou scientifique',
+    input_schema: {
+      type: 'object',
+      properties: {
+        expression: { type: 'string', description: 'Expression à calculer (ex: "sqrt(144)", "2^10", "sin(pi/2)")' },
+      },
+      required: ['expression'],
+    },
+  },
+  {
+    name: 'recall_knowledge',
+    description: 'Récupère un fait mémorisé dans la base de connaissance locale de JARVIS',
+    input_schema: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: 'Clé ou sujet à retrouver' },
+      },
+      required: ['key'],
+    },
+  },
+  {
+    name: 'list_knowledge',
+    description: 'Liste les derniers faits mémorisés dans la base de connaissance de JARVIS',
+    input_schema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: 'Nombre maximum d\'entrées à afficher (défaut: 10)' },
+      },
+      required: [],
+    },
+  },
 ];
 
 class ClaudeService {
