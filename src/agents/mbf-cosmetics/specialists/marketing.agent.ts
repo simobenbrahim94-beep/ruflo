@@ -1,6 +1,6 @@
 import { AgentBase } from '../base.agent.js';
 import type { AgentContext, AgentResult } from '../types.js';
-import { ROUTINES_FR_BRAND, ADAPTATION_GAMMES_MAROC } from '../data/routines-fr.data.js';
+import { ROUTINES_FR_BRAND } from '../data/routines-fr.data.js';
 
 // Plateformes réseaux sociaux Maroc 2025
 const RESEAUX_SOCIAUX_MAROC = {
